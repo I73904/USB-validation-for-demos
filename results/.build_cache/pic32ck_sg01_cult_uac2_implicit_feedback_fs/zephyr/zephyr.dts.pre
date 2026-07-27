@@ -1,0 +1,1976 @@
+# 0 "D:/ZephyrProject/mchp_zephyrproject/zephyr/misc/empty_file.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts" 1
+
+
+
+
+
+
+/dts-v1/;
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/mem.h" 1 3 4
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc_144.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 1 3 4
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 1 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 3 4
+/ {
+ #address-cells = <1>;
+ #size-cells = <1>;
+
+ chosen {};
+
+ aliases {};
+};
+# 4 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 2 3 4
+
+/ {
+ soc {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  compatible = "simple-bus";
+  interrupt-parent = <&nvic>;
+  ranges;
+
+  nvic: interrupt-controller@e000e100 {
+   #address-cells = <1>;
+   compatible = "arm,v8m-nvic";
+   reg = <0xe000e100 0xc00>;
+   interrupt-controller;
+   #interrupt-cells = <2>;
+  };
+
+  systick: timer@e000e010 {
+   compatible = "arm,armv8m-systick";
+   reg = <0xe000e010 0x10>;
+  };
+ };
+};
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/gpio/gpio.h" 1 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/clock/mchp_pic32ck_sg_gc_clock.h" 1 3 4
+# 10 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 2 3 4
+
+/ {
+ aliases {
+  watchdog0 = &wdt;
+ };
+
+ cpus {
+  #address-cells = <1>;
+  #size-cells = <0>;
+
+  cpu0: cpu@0 {
+   device_type = "cpu";
+   compatible = "arm,cortex-m33";
+   reg = <0>;
+   #address-cells = <1>;
+   #size-cells = <1>;
+
+   mpu: mpu@e000ed90 {
+    compatible = "arm,armv8m-mpu";
+    reg = <0xe000ed90 0x40>;
+   };
+  };
+ };
+
+ soc {
+  hwinfo: device_id@a0071e0 {
+   compatible = "microchip,hwinfo-g1";
+   reg = <0x0a0071e0 0x4>,
+         <0x0a0071e4 0x4>,
+         <0x0a0071e8 0x4>,
+         <0x0a0071ec 0x4>;
+  };
+
+  nvmctrl: flash-controller@44002000 {
+   compatible = "microchip,nvmctrl-g3";
+   reg = <0x44002000 0x60>, <0x44004000 0x7c>;
+   reg-names = "fcr", "fcw";
+   clock-parent = <&clock>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((5) << 14) | ((0x3f) << 8) | 2)>,
+     <&mclkperiph (((9) << 26) | ((1) << 20) | ((2) << 14) | ((0x3f) << 8) | 19)>,
+     <&mclkperiph (((9) << 26) | ((0) << 20) | ((4) << 14) | ((0x3f) << 8) | 1)>,
+     <&mclkperiph (((9) << 26) | ((1) << 20) | ((1) << 14) | ((0x3f) << 8) | 18)>;
+   clock-names = "mclk-fcw-ahb", "mclk-fcw-apb", "mclk-fcr-ahb",
+          "mclk-fcr-apb";
+   interrupts = <0 0>, <1 0>, <2 0>;
+   interrupt-names = "eccerr", "crcerr", "fcw";
+   #address-cells = <1>;
+   #size-cells = <1>;
+   ranges;
+
+   flash0: flash@8000000 {
+    compatible = "microchip,flash-g3", "soc-nv-flash";
+    write-block-size = <8>;
+    write-block-size-quad-dw = <32>;
+    write-block-size-row = <((1) * 1024)>;
+    erase-block-size = <((4) * 1024)>;
+    unimplemented-region = <0x08020000 0x0bffffff>;
+   };
+  };
+
+
+  cfm_calotp_usbfs: cfm_calotp_usbfs@a007190 {
+   reg = <0x0a007190 0x4>;
+  };
+
+  sram0: memory@20000000 {
+   compatible = "mmio-sram";
+  };
+
+  clock: clock@44012000 {
+   compatible = "microchip,pic32ck-sg-gc-clock";
+   reg = <0x44012000 0x2000>, <0x4400c000 0x2000>, <0x4400e000 0x2000>,
+         <0x44010000 0x2000>, <0x44008000 0x2000>;
+   reg-names = "mclk", "oscctrl", "osc32kctrl", "gclk", "supc";
+   interrupts = <5 0>, <5 0>, <5 0>, <6 0>, <6 0>,
+         <6 0>, <6 0>, <6 0>, <6 0>,
+         <7 0>, <8 0>, <8 0>, <9 0>;
+   interrupt-names = "xosc-fail", "xosc-crdy", "clk-fail", "dfll-rdy",
+       "dfll-lock", "dfll-ovf", "dfll-unf", "dfll-rcs",
+       "dfll-fail", "pll0-ckr", "xosc32k-rdy", "xosc32k-fail",
+       "ckrdy";
+
+   xosc: xosc {
+    compatible = "microchip,pic32ck-sg-gc-xosc";
+   };
+
+   dfll48m: dfll48m {
+    compatible = "microchip,pic32ck-sg-gc-dfll48m";
+   };
+
+   pll: pll {
+    compatible = "microchip,pic32ck-sg-gc-pll";
+
+    pll0: pll0 {
+     compatible = "microchip,pic32ck-sg-gc-pllchild";
+    };
+   };
+
+   rtcclock: rtcclock {
+    compatible = "microchip,pic32ck-sg-gc-rtc";
+    #clock-cells = <1>;
+   };
+
+   xosc32k: xosc32k {
+    compatible = "microchip,pic32ck-sg-gc-xosc32k";
+   };
+
+   gclkgen: gclkgen {
+    compatible = "microchip,pic32ck-sg-gc-gclkgen";
+   };
+
+   gclkperiph: gclkperiph {
+    compatible = "microchip,pic32ck-sg-gc-gclkperiph";
+    #clock-cells = <1>;
+   };
+
+   mclkcpu: mclkcpu {
+    compatible = "microchip,pic32ck-sg-gc-mclkcpu";
+   };
+
+   mclkperiph: mclkperiph {
+    compatible = "microchip,pic32ck-sg-gc-mclkperiph";
+    #clock-cells = <1>;
+   };
+  };
+
+  wdt: watchdog@44016000 {
+   compatible = "microchip,wdt-g1";
+   reg = <0x44016000 13>;
+   interrupts = <11 0>;
+   interrupt-names = "wdt-ew";
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((11) << 14) | ((0x3f) << 8) | 24)>;
+   clock-names = "mclk";
+   max-installable-timeout-count = <1>;
+   max-timeout-window = <0x4000>;
+   max-timeout-window-mode = <0x8000>;
+   min-window-limit = <0x8>;
+   status = "disabled";
+  };
+
+  rtc: rtc@44018000 {
+   compatible = "microchip,rtc-g1";
+   reg = <0x44018000 0x70>;
+   interrupts = <12 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((12) << 14) | ((0x3f) << 8) | 25)>,
+     <&rtcclock (((4) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 0)>;
+   clock-names = "mclk", "rtcclk";
+   prescaler = <1>;
+   alarms-count = <2>;
+   cal-constant = <1048576>;
+   status = "disabled";
+  };
+
+  eic: interrupt-controller@4401a000 {
+   compatible = "microchip,eic-g1-intc";
+   reg = <0x4401a000 0x2000>;
+   interrupts = <13 0>, <14 0>, <15 0>, <16 0>,
+         <17 0>, <18 0>, <19 0>, <20 0>,
+         <21 0>, <22 0>, <23 0>, <24 0>,
+         <25 0>, <26 0>, <27 0>, <28 0>;
+   interrupt-names = "extint-0", "extint-1", "extint-2", "extint-3",
+       "extint-4", "extint-5", "extint-6", "extint-7",
+       "extint-8", "extint-9", "extint-10", "extint-11",
+       "extint-12", "extint-13", "extint-14", "extint-15";
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((13) << 14) | ((0x3f) << 8) | 26)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((5) << 8) | 3)>;
+   clock-names = "mclk", "gclk";
+   low-power-mode;
+
+
+
+
+   porta-unsupported-pins = <0xe0080000>;
+   portc-unsupported-pins = <0x00000100>;
+
+
+   portd-supported-pins = <0x003f7ffe>;
+
+   porta-special-pins-1 = <0x1 0xe>;
+  };
+
+  pinctrl: pinctrl@44800000 {
+   compatible = "microchip,port-g1-pinctrl";
+   #address-cells = <1>;
+   #size-cells = <1>;
+   reg = <0x44800000 0x200>;
+   ranges = <0x44800000 0x44800000 0x200>;
+
+   porta: gpio@44800000 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800000 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portb: gpio@44800080 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800080 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portc: gpio@44800100 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800100 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portd: gpio@44800180 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800180 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+  };
+
+  sercom0: sercom@44810000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44810000 0x38>;
+   interrupts = <44 0>, <45 0>, <46 0>, <47 0>, <48 0>, <49 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((7) << 14) | ((0x3f) << 8) | 37)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((19) << 8) | 26)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom1: sercom@44812000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44812000 0x38>;
+   interrupts = <50 0>, <51 0>, <52 0>, <53 0>, <54 0>, <55 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((8) << 14) | ((0x3f) << 8) | 38)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((20) << 8) | 27)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom2: sercom@44814000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44814000 0x38>;
+   interrupts = <56 0>, <57 0>, <58 0>, <59 0>, <60 0>, <61 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((9) << 14) | ((0x3f) << 8) | 39)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((21) << 8) | 28)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom3: sercom@44816000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44816000 0x38>;
+   interrupts = <62 0>, <63 0>, <64 0>, <65 0>, <66 0>, <67 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((10) << 14) | ((0x3f) << 8) | 40)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((22) << 8) | 29)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  tcc0: tcc@44818000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x44818000 0x88>;
+   interrupts = <68 0>, <69 0>, <70 0>, <71 0>, <72 0>, <73 0>, <74 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((11) << 14) | ((0x3f) << 8) | 41)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((23) << 8) | 30)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc1: tcc@4481a000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481a000 0x88>;
+   interrupts = <75 0>, <76 0>, <77 0>, <78 0>, <79 0>, <80 0>, <81 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((12) << 14) | ((0x3f) << 8) | 42)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((23) << 8) | 31)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc2: tcc@4481c000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481c000 0x88>;
+   interrupts = <82 0>, <83 0>, <84 0>, <85 0>, <86 0>, <87 0>, <88 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((13) << 14) | ((0x3f) << 8) | 43)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((24) << 8) | 32)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc3: tcc@4481e000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481e000 0x88>;
+   interrupts = <89 0>, <90 0>, <91 0>, <92 0>, <93 0>, <94 0>, <95 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((14) << 14) | ((0x3f) << 8) | 44)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((24) << 8) | 33)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  sercom4: sercom@45000000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45000000 0x38>;
+   interrupts = <96 0>, <97 0>, <98 0>, <99 0>, <100 0>, <101 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((0) << 14) | ((0x3f) << 8) | 45)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((25) << 8) | 34)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom5: sercom@45002000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45002000 0x38>;
+   interrupts = <102 0>, <103 0>, <104 0>, <105 0>, <106 0>, <107 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((1) << 14) | ((0x3f) << 8) | 46)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((26) << 8) | 35)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  tcc4: tcc@45008000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x45008000 0x88>;
+   interrupts = <120 0>, <121 0>, <122 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((4) << 14) | ((0x3f) << 8) | 49)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((29) << 8) | 38)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  tcc5: tcc@4500a000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4500a000 0x88>;
+   interrupts = <123 0>, <124 0>, <125 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((5) << 14) | ((0x3f) << 8) | 50)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((30) << 8) | 39)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  trng: random@45024000 {
+   compatible = "microchip,trng-g1-entropy";
+   reg = <0x45024000 0x24>;
+   interrupts = <147 0>;
+   interrupt-names = "datardy";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((16) << 14) | ((0x3f) << 8) | 61)>;
+   clock-names = "mclk";
+   status = "disabled";
+  };
+
+  adc0: adc@45010000 {
+   compatible = "microchip,adc-g2";
+   reg = <0x45010000 0x5b>, <0xa007000 0x69>;
+   reg-names = "adc", "fuses";
+   interrupts = <132 0>, <133 0>;
+   interrupt-names = "global", "core0";
+   num-channels = <14>;
+   #io-channel-cells = <1>;
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((8) << 14) | ((0x3f) << 8) | 53)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((33) << 8) | 42)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  usb0: usb@4502a000 {
+   compatible = "microchip,usb-g1";
+   reg = <0x4502a000 0x1fff>;
+   interrupts = <150 0>, <151 0>, <152 0>, <153 0>;
+   interrupt-names = "usb", "sof", "trcpt0", "trcpt1";
+   num-bidir-endpoints = <8>;
+   maximum-speed = "full-speed";
+   nvm-calib = <&cfm_calotp_usbfs>;
+   calib-mapping = <0x06 0x06 0x1f 0x05>,
+     <0x0 0x0 0x1f 0x29>,
+     <0xc 0xc 0x07 0x03>;
+   calib-mapping-names = "TRANSN", "TRANSP", "TRIM";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((17) << 14) | ((0x3f) << 8) | 62)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((46) << 8) | 55)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  hsusb0: usb@46000000 {
+   compatible = "microchip,usb-g2";
+   reg = <0x46000000 0x2000>;
+   interrupts = <154 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((20) << 14) | ((0x3f) << 8) | 14)>,
+     <&mclkperiph (((9) << 26) | ((3) << 20) | ((17) << 14) | ((0x3f) << 8) | 62)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((46) << 8) | 55)>;
+   clock-names = "ahb", "apb", "gclk";
+   num-bidir-endpoints = <8>;
+   num-in-endpoints = <8>;
+   num-out-endpoints = <8>;
+   maximum-speed = "high-speed";
+   status = "disabled";
+  };
+
+  sdhc0: sdhc@45026000 {
+   compatible = "microchip,sdhc-g1";
+   reg = <0x45026000 0x234>;
+   interrupts = <148 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((17) << 14) | ((0x3f) << 8) | 11)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((44) << 8) | 53)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((18) << 8) | 16)>;
+   clock-names = "mclk", "gclk", "gclk-slow";
+   min-bus-freq = <400000>;
+   max-bus-freq = <50000000>;
+   status = "disabled";
+  };
+ };
+};
+
+&nvic {
+ arm,num-irq-priority-bits = <3>;
+};
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc_144.dtsi" 2 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01_144.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 1 3 4
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 1 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 3 4
+/ {
+ #address-cells = <1>;
+ #size-cells = <1>;
+
+ chosen {};
+
+ aliases {};
+};
+# 4 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 2 3 4
+
+/ {
+ soc {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  compatible = "simple-bus";
+  interrupt-parent = <&nvic>;
+  ranges;
+
+  nvic: interrupt-controller@e000e100 {
+   #address-cells = <1>;
+   compatible = "arm,v8m-nvic";
+   reg = <0xe000e100 0xc00>;
+   interrupt-controller;
+   #interrupt-cells = <2>;
+  };
+
+  systick: timer@e000e010 {
+   compatible = "arm,armv8m-systick";
+   reg = <0xe000e010 0x10>;
+  };
+ };
+};
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi" 2 3 4
+
+
+
+/ {
+ aliases {
+  watchdog0 = &wdt;
+ };
+
+ cpus {
+  #address-cells = <1>;
+  #size-cells = <0>;
+
+  cpu0: cpu@0 {
+   device_type = "cpu";
+   compatible = "arm,cortex-m33";
+   reg = <0>;
+   #address-cells = <1>;
+   #size-cells = <1>;
+
+   mpu: mpu@e000ed90 {
+    compatible = "arm,armv8m-mpu";
+    reg = <0xe000ed90 0x40>;
+   };
+  };
+ };
+
+ soc {
+  hwinfo: device_id@a0071e0 {
+   compatible = "microchip,hwinfo-g1";
+   reg = <0x0a0071e0 0x4>,
+         <0x0a0071e4 0x4>,
+         <0x0a0071e8 0x4>,
+         <0x0a0071ec 0x4>;
+  };
+
+  nvmctrl: flash-controller@44002000 {
+   compatible = "microchip,nvmctrl-g3";
+   reg = <0x44002000 0x60>, <0x44004000 0x7c>;
+   reg-names = "fcr", "fcw";
+   clock-parent = <&clock>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((5) << 14) | ((0x3f) << 8) | 2)>,
+     <&mclkperiph (((9) << 26) | ((1) << 20) | ((2) << 14) | ((0x3f) << 8) | 19)>,
+     <&mclkperiph (((9) << 26) | ((0) << 20) | ((4) << 14) | ((0x3f) << 8) | 1)>,
+     <&mclkperiph (((9) << 26) | ((1) << 20) | ((1) << 14) | ((0x3f) << 8) | 18)>;
+   clock-names = "mclk-fcw-ahb", "mclk-fcw-apb", "mclk-fcr-ahb",
+          "mclk-fcr-apb";
+   interrupts = <0 0>, <1 0>, <2 0>;
+   interrupt-names = "eccerr", "crcerr", "fcw";
+   #address-cells = <1>;
+   #size-cells = <1>;
+   ranges;
+
+   flash0: flash@8000000 {
+    compatible = "microchip,flash-g3", "soc-nv-flash";
+    write-block-size = <8>;
+    write-block-size-quad-dw = <32>;
+    write-block-size-row = <((1) * 1024)>;
+    erase-block-size = <((4) * 1024)>;
+    unimplemented-region = <0x08020000 0x0bffffff>;
+   };
+  };
+
+
+  cfm_calotp_usbfs: cfm_calotp_usbfs@a007190 {
+   reg = <0x0a007190 0x4>;
+  };
+
+  sram0: memory@20000000 {
+   compatible = "mmio-sram";
+  };
+
+  clock: clock@44012000 {
+   compatible = "microchip,pic32ck-sg-gc-clock";
+   reg = <0x44012000 0x2000>, <0x4400c000 0x2000>, <0x4400e000 0x2000>,
+         <0x44010000 0x2000>, <0x44008000 0x2000>;
+   reg-names = "mclk", "oscctrl", "osc32kctrl", "gclk", "supc";
+   interrupts = <5 0>, <5 0>, <5 0>, <6 0>, <6 0>,
+         <6 0>, <6 0>, <6 0>, <6 0>,
+         <7 0>, <8 0>, <8 0>, <9 0>;
+   interrupt-names = "xosc-fail", "xosc-crdy", "clk-fail", "dfll-rdy",
+       "dfll-lock", "dfll-ovf", "dfll-unf", "dfll-rcs",
+       "dfll-fail", "pll0-ckr", "xosc32k-rdy", "xosc32k-fail",
+       "ckrdy";
+
+   xosc: xosc {
+    compatible = "microchip,pic32ck-sg-gc-xosc";
+   };
+
+   dfll48m: dfll48m {
+    compatible = "microchip,pic32ck-sg-gc-dfll48m";
+   };
+
+   pll: pll {
+    compatible = "microchip,pic32ck-sg-gc-pll";
+
+    pll0: pll0 {
+     compatible = "microchip,pic32ck-sg-gc-pllchild";
+    };
+   };
+
+   rtcclock: rtcclock {
+    compatible = "microchip,pic32ck-sg-gc-rtc";
+    #clock-cells = <1>;
+   };
+
+   xosc32k: xosc32k {
+    compatible = "microchip,pic32ck-sg-gc-xosc32k";
+   };
+
+   gclkgen: gclkgen {
+    compatible = "microchip,pic32ck-sg-gc-gclkgen";
+   };
+
+   gclkperiph: gclkperiph {
+    compatible = "microchip,pic32ck-sg-gc-gclkperiph";
+    #clock-cells = <1>;
+   };
+
+   mclkcpu: mclkcpu {
+    compatible = "microchip,pic32ck-sg-gc-mclkcpu";
+   };
+
+   mclkperiph: mclkperiph {
+    compatible = "microchip,pic32ck-sg-gc-mclkperiph";
+    #clock-cells = <1>;
+   };
+  };
+
+  wdt: watchdog@44016000 {
+   compatible = "microchip,wdt-g1";
+   reg = <0x44016000 13>;
+   interrupts = <11 0>;
+   interrupt-names = "wdt-ew";
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((11) << 14) | ((0x3f) << 8) | 24)>;
+   clock-names = "mclk";
+   max-installable-timeout-count = <1>;
+   max-timeout-window = <0x4000>;
+   max-timeout-window-mode = <0x8000>;
+   min-window-limit = <0x8>;
+   status = "disabled";
+  };
+
+  rtc: rtc@44018000 {
+   compatible = "microchip,rtc-g1";
+   reg = <0x44018000 0x70>;
+   interrupts = <12 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((12) << 14) | ((0x3f) << 8) | 25)>,
+     <&rtcclock (((4) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 0)>;
+   clock-names = "mclk", "rtcclk";
+   prescaler = <1>;
+   alarms-count = <2>;
+   cal-constant = <1048576>;
+   status = "disabled";
+  };
+
+  eic: interrupt-controller@4401a000 {
+   compatible = "microchip,eic-g1-intc";
+   reg = <0x4401a000 0x2000>;
+   interrupts = <13 0>, <14 0>, <15 0>, <16 0>,
+         <17 0>, <18 0>, <19 0>, <20 0>,
+         <21 0>, <22 0>, <23 0>, <24 0>,
+         <25 0>, <26 0>, <27 0>, <28 0>;
+   interrupt-names = "extint-0", "extint-1", "extint-2", "extint-3",
+       "extint-4", "extint-5", "extint-6", "extint-7",
+       "extint-8", "extint-9", "extint-10", "extint-11",
+       "extint-12", "extint-13", "extint-14", "extint-15";
+   clocks = <&mclkperiph (((9) << 26) | ((1) << 20) | ((13) << 14) | ((0x3f) << 8) | 26)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((5) << 8) | 3)>;
+   clock-names = "mclk", "gclk";
+   low-power-mode;
+
+
+
+
+   porta-unsupported-pins = <0xe0080000>;
+   portc-unsupported-pins = <0x00000100>;
+
+
+   portd-supported-pins = <0x003f7ffe>;
+
+   porta-special-pins-1 = <0x1 0xe>;
+  };
+
+  pinctrl: pinctrl@44800000 {
+   compatible = "microchip,port-g1-pinctrl";
+   #address-cells = <1>;
+   #size-cells = <1>;
+   reg = <0x44800000 0x200>;
+   ranges = <0x44800000 0x44800000 0x200>;
+
+   porta: gpio@44800000 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800000 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portb: gpio@44800080 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800080 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portc: gpio@44800100 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800100 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+
+   portd: gpio@44800180 {
+    compatible = "microchip,port-g1-gpio";
+    reg = <0x44800180 0x80>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    #microchip,pin-cells = <2>;
+    status = "disabled";
+   };
+  };
+
+  sercom0: sercom@44810000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44810000 0x38>;
+   interrupts = <44 0>, <45 0>, <46 0>, <47 0>, <48 0>, <49 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((7) << 14) | ((0x3f) << 8) | 37)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((19) << 8) | 26)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom1: sercom@44812000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44812000 0x38>;
+   interrupts = <50 0>, <51 0>, <52 0>, <53 0>, <54 0>, <55 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((8) << 14) | ((0x3f) << 8) | 38)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((20) << 8) | 27)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom2: sercom@44814000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44814000 0x38>;
+   interrupts = <56 0>, <57 0>, <58 0>, <59 0>, <60 0>, <61 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((9) << 14) | ((0x3f) << 8) | 39)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((21) << 8) | 28)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom3: sercom@44816000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x44816000 0x38>;
+   interrupts = <62 0>, <63 0>, <64 0>, <65 0>, <66 0>, <67 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((10) << 14) | ((0x3f) << 8) | 40)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((22) << 8) | 29)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  tcc0: tcc@44818000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x44818000 0x88>;
+   interrupts = <68 0>, <69 0>, <70 0>, <71 0>, <72 0>, <73 0>, <74 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((11) << 14) | ((0x3f) << 8) | 41)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((23) << 8) | 30)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc1: tcc@4481a000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481a000 0x88>;
+   interrupts = <75 0>, <76 0>, <77 0>, <78 0>, <79 0>, <80 0>, <81 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((12) << 14) | ((0x3f) << 8) | 42)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((23) << 8) | 31)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc2: tcc@4481c000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481c000 0x88>;
+   interrupts = <82 0>, <83 0>, <84 0>, <85 0>, <86 0>, <87 0>, <88 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((13) << 14) | ((0x3f) << 8) | 43)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((24) << 8) | 32)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  tcc3: tcc@4481e000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4481e000 0x88>;
+   interrupts = <89 0>, <90 0>, <91 0>, <92 0>, <93 0>, <94 0>, <95 0>;
+   interrupt-names = "cnt", "mc0", "mc1", "mc2", "mc3", "mc4", "mc5";
+   clocks = <&mclkperiph (((9) << 26) | ((2) << 20) | ((14) << 14) | ((0x3f) << 8) | 44)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((24) << 8) | 33)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <32>;
+   channels = <6>;
+   status = "disabled";
+  };
+
+  sercom4: sercom@45000000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45000000 0x38>;
+   interrupts = <96 0>, <97 0>, <98 0>, <99 0>, <100 0>, <101 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((0) << 14) | ((0x3f) << 8) | 45)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((25) << 8) | 34)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom5: sercom@45002000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45002000 0x38>;
+   interrupts = <102 0>, <103 0>, <104 0>, <105 0>, <106 0>, <107 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((1) << 14) | ((0x3f) << 8) | 46)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((26) << 8) | 35)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  tcc4: tcc@45008000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x45008000 0x88>;
+   interrupts = <120 0>, <121 0>, <122 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((4) << 14) | ((0x3f) << 8) | 49)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((29) << 8) | 38)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  tcc5: tcc@4500a000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4500a000 0x88>;
+   interrupts = <123 0>, <124 0>, <125 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((5) << 14) | ((0x3f) << 8) | 50)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((30) << 8) | 39)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  trng: random@45024000 {
+   compatible = "microchip,trng-g1-entropy";
+   reg = <0x45024000 0x24>;
+   interrupts = <147 0>;
+   interrupt-names = "datardy";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((16) << 14) | ((0x3f) << 8) | 61)>;
+   clock-names = "mclk";
+   status = "disabled";
+  };
+
+  adc0: adc@45010000 {
+   compatible = "microchip,adc-g2";
+   reg = <0x45010000 0x5b>, <0xa007000 0x69>;
+   reg-names = "adc", "fuses";
+   interrupts = <132 0>, <133 0>;
+   interrupt-names = "global", "core0";
+   num-channels = <14>;
+   #io-channel-cells = <1>;
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((8) << 14) | ((0x3f) << 8) | 53)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((33) << 8) | 42)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  usb0: usb@4502a000 {
+   compatible = "microchip,usb-g1";
+   reg = <0x4502a000 0x1fff>;
+   interrupts = <150 0>, <151 0>, <152 0>, <153 0>;
+   interrupt-names = "usb", "sof", "trcpt0", "trcpt1";
+   num-bidir-endpoints = <8>;
+   maximum-speed = "full-speed";
+   nvm-calib = <&cfm_calotp_usbfs>;
+   calib-mapping = <0x06 0x06 0x1f 0x05>,
+     <0x0 0x0 0x1f 0x29>,
+     <0xc 0xc 0x07 0x03>;
+   calib-mapping-names = "TRANSN", "TRANSP", "TRIM";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((17) << 14) | ((0x3f) << 8) | 62)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((46) << 8) | 55)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  hsusb0: usb@46000000 {
+   compatible = "microchip,usb-g2";
+   reg = <0x46000000 0x2000>;
+   interrupts = <154 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((20) << 14) | ((0x3f) << 8) | 14)>,
+     <&mclkperiph (((9) << 26) | ((3) << 20) | ((17) << 14) | ((0x3f) << 8) | 62)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((46) << 8) | 55)>;
+   clock-names = "ahb", "apb", "gclk";
+   num-bidir-endpoints = <8>;
+   num-in-endpoints = <8>;
+   num-out-endpoints = <8>;
+   maximum-speed = "high-speed";
+   status = "disabled";
+  };
+
+  sdhc0: sdhc@45026000 {
+   compatible = "microchip,sdhc-g1";
+   reg = <0x45026000 0x234>;
+   interrupts = <148 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((17) << 14) | ((0x3f) << 8) | 11)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((44) << 8) | 53)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((18) << 8) | 16)>;
+   clock-names = "mclk", "gclk", "gclk-slow";
+   min-bus-freq = <400000>;
+   max-bus-freq = <50000000>;
+   status = "disabled";
+  };
+ };
+};
+
+&nvic {
+ arm,num-irq-priority-bits = <3>;
+};
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01_144.dtsi" 2 3 4
+
+/ {
+ soc {
+  can0: can@4501e000 {
+   compatible = "microchip,mcan-g1";
+   reg = <0x4501e000 0x100>;
+   interrupts = <143 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((13) << 14) | ((0x3f) << 8) | 7)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((39) << 8) | 48)>;
+   clock-names = "mclk", "gclk";
+   bosch,mram-cfg = <0x0 28 8 3 3 0 3 3>;
+   status = "disabled";
+  };
+
+  can1: can@45020000 {
+   compatible = "microchip,mcan-g1";
+   reg = <0x45020000 0x100>;
+   interrupts = <144 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((14) << 14) | ((0x3f) << 8) | 8)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((40) << 8) | 49)>;
+   clock-names = "mclk", "gclk";
+   bosch,mram-cfg = <0x0 28 8 3 3 0 3 3>;
+   status = "disabled";
+  };
+ };
+};
+# 10 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_2051_sg_gc.dtsi" 1 3 4
+
+
+
+
+
+/ {
+ soc {
+  nvmctrl: flash-controller@44002000 {
+   flash0: flash@8000000 {
+
+
+
+    reg = <0x08000000
+           (((128) * 1024) + ((65408) * 1024) + (((2) * 1024) * 1024))>;
+    #address-cells = <1>;
+    #size-cells = <1>;
+    ranges = <0x0 0x08000000
+       (((128) * 1024) + ((65408) * 1024) + (((2) * 1024) * 1024))>;
+   };
+  };
+
+  sram0: memory@20000000 {
+   reg = <0x20000000 ((512) * 1024)>;
+  };
+
+  sercom6: sercom@45004000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45004000 0x38>;
+   interrupts = <108 0>, <109 0>, <110 0>, <111 0>, <112 0>, <113 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((2) << 14) | ((0x3f) << 8) | 47)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((27) << 8) | 36)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  sercom7: sercom@45008000 {
+   compatible = "microchip,sercom-g1";
+   reg = <0x45008000 0x38>;
+   interrupts = <114 0>, <115 0>, <116 0>, <117 0>, <118 0>, <119 0>;
+   interrupt-names = "error", "dre", "txc", "rxc", "rxs", "ctsic";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((3) << 14) | ((0x3f) << 8) | 48)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((28) << 8) | 37)>;
+   clock-names = "mclk", "gclk";
+   status = "disabled";
+  };
+
+  tcc6: tcc@4500c000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4500c000 0x88>;
+   interrupts = <126 0>, <127 0>, <128 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((6) << 14) | ((0x3f) << 8) | 51)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((31) << 8) | 40)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  tcc7: tcc@4500e000 {
+   compatible = "microchip,tcc-g1";
+   reg = <0x4500e000 0x88>;
+   interrupts = <129 0>, <130 0>, <131 0>;
+   interrupt-names = "cnt", "mc0", "mc1";
+   clocks = <&mclkperiph (((9) << 26) | ((3) << 20) | ((7) << 14) | ((0x3f) << 8) | 52)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((32) << 8) | 41)>;
+   clock-names = "mclk", "gclk";
+   max-bit-width = <16>;
+   channels = <2>;
+   status = "disabled";
+  };
+
+  sdhc1: sdhc@45028000 {
+   compatible = "microchip,sdhc-g1";
+   reg = <0x45028000 0x234>;
+   interrupts = <149 0>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((18) << 14) | ((0x3f) << 8) | 12)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((45) << 8) | 54)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((18) << 8) | 17)>;
+   clock-names = "mclk", "gclk", "gclk-slow";
+   min-bus-freq = <400000>;
+   max-bus-freq = <50000000>;
+   status = "disabled";
+  };
+ };
+};
+# 11 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg.dtsi" 1 3 4
+
+
+
+
+
+
+&pinctrl {
+ porta_secure: gpio@44801000 {
+  compatible = "microchip,port-g1-gpio";
+  reg = <0x44801000 0x80>;
+  gpio-controller;
+  #gpio-cells = <2>;
+  #microchip,pin-cells = <2>;
+  status = "disabled";
+ };
+
+ portb_secure: gpio@44801080 {
+  compatible = "microchip,port-g1-gpio";
+  reg = <0x44801080 0x80>;
+  gpio-controller;
+  #gpio-cells = <2>;
+  #microchip,pin-cells = <2>;
+  status = "disabled";
+ };
+
+ portc_secure: gpio@44801100 {
+  compatible = "microchip,port-g1-gpio";
+  reg = <0x44801100 0x80>;
+  gpio-controller;
+  #gpio-cells = <2>;
+  #microchip,pin-cells = <2>;
+  status = "disabled";
+ };
+
+ portd_secure: gpio@44801180 {
+  compatible = "microchip,port-g1-gpio";
+  reg = <0x44801180 0x80>;
+  gpio-controller;
+  #gpio-cells = <2>;
+  #microchip,pin-cells = <2>;
+  status = "disabled";
+ };
+};
+# 12 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01.dtsi" 1 3 4
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 1 3 4
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 1 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi" 3 4
+/ {
+ #address-cells = <1>;
+ #size-cells = <1>;
+
+ chosen {};
+
+ aliases {};
+};
+# 4 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi" 2 3 4
+
+/ {
+ soc {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  compatible = "simple-bus";
+  interrupt-parent = <&nvic>;
+  ranges;
+
+  nvic: interrupt-controller@e000e100 {
+   #address-cells = <1>;
+   compatible = "arm,v8m-nvic";
+   reg = <0xe000e100 0xc00>;
+   interrupt-controller;
+   #interrupt-cells = <2>;
+  };
+
+  systick: timer@e000e010 {
+   compatible = "arm,armv8m-systick";
+   reg = <0xe000e010 0x10>;
+  };
+ };
+};
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01.dtsi" 2 3 4
+
+
+
+/ {
+ soc {
+  gmac: ethernet@45022000 {
+   compatible = "microchip,gmac-g1-eth";
+   reg = <0x45022000 0x400>;
+   interrupts = <145 0>;
+   interrupt-names = "gmac";
+   num-queues = <1>;
+   clocks = <&mclkperiph (((9) << 26) | ((0) << 20) | ((15) << 14) | ((0x3f) << 8) | 9)>,
+     <&mclkperiph (((9) << 26) | ((3) << 20) | ((15) << 14) | ((0x3f) << 8) | 60)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((41) << 8) | 50)>,
+     <&gclkperiph (((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((42) << 8) | 51)>;
+   clock-names = "mclk-ahb", "mclk-apb", "gclk-tx", "gclk-tsu";
+   status = "disabled";
+
+   mdio: mdio {
+    compatible = "microchip,gmac-g1-mdio";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    status = "disabled";
+   };
+  };
+ };
+};
+# 13 "D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi" 2 3 4
+# 9 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts" 2
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/input/input-event-codes.h" 1 3 4
+# 10 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts" 2
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/i2c/i2c.h" 1 3 4
+# 11 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts" 2
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult-pinctrl.dtsi" 1
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144-pinctrl.h" 1 3 4
+# 12 "D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144-pinctrl.h" 3 4
+# 1 "D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/common/mchp_pinctrl_pinmux_pic32c.h" 1 3 4
+# 13 "D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144-pinctrl.h" 2 3 4
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult-pinctrl.dtsi" 2
+
+&pinctrl {
+ sercom1_uart_default: sercom1_uart_default {
+  group1 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((13) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((14) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom2_spi_default: sercom2_spi_default {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((18) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom3_uart_default: sercom3_uart_default {
+  group1 {
+   pinmux = <((((1U) & (0xFU)) << (0U)) | (((21) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((22) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom4_i2c_default: sercom4_i2c_default {
+  group1 {
+   pinmux = <((((1U) & (0xFU)) << (0U)) | (((9) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((10) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom5_uart_default: sercom5_uart_default {
+  group1 {
+   pinmux = <((((0U) & (0xFU)) << (0U)) | (((25) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((0U) & (0xFU)) << (0U)) | (((24) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+
+ can0_default: can0_default {
+  group1 {
+   pinmux = <((((1U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((7U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((7U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom2_spi_ext1: sercom2_spi_ext1 {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+
+  group2 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((0U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((0U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom2_spi_ext2: sercom2_spi_ext2 {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+
+  group2 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((23) & (0x1FU)) << ((0U) + 4U)) | (((0U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((0U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom2_spi_arduino: sercom2_spi_arduino {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+
+  group2 {
+   pinmux = <((((1U) & (0xFU)) << (0U)) | (((12) & (0x1FU)) << ((0U) + 4U)) | (((0U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((0U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom2_spi_mikrobus: sercom2_spi_mikrobus {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+
+  group2 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((15) & (0x1FU)) << ((0U) + 4U)) | (((0U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((0U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom_audio_spi: sercom_audio_spi {
+  group1 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((16) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((9U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((17) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((9U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((14) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((9U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((13) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((9U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sercom4_spi_default: sercom4_spi_default {
+  group1 {
+   pinmux = <((((1U) & (0xFU)) << (0U)) | (((9) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((6) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((13) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((1U) & (0xFU)) << (0U)) | (((10) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((2U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ usb_dc_default: usb_dc_default {
+  group1 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((4) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((7U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((3) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((7U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ mdio_default: mdio_default {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((3) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((4) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ gmac_rmii: gmac_rmii {
+  group1 {
+   pinmux = <((((2U) & (0xFU)) << (0U)) | (((0) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((11) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((12) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((13) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((10) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((7) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((6) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((2U) & (0xFU)) << (0U)) | (((9) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((11U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+
+ sdhc0_default: sdmmc0_default {
+  group1 {
+   pinmux = <((((3U) & (0xFU)) << (0U)) | (((10) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((6) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((7) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((11) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((8) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((9) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((12) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>,
+     <((((3U) & (0xFU)) << (0U)) | (((5) & (0x1FU)) << ((0U) + 4U)) | (((1U) & (0x7U)) << (((0U) + 4U) + 5U)) | (((8U) & (0xFU)) << ((((0U) + 4U) + 5U) + 3U)))>;
+  };
+ };
+};
+# 12 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts" 2
+
+/ {
+ model = "PIC32CK SG01 Curiosity Ultra";
+ compatible = "microchip,pic32ck_sg01_cult";
+
+ chosen {
+  zephyr,sram = &sram0;
+  zephyr,flash = &flash0;
+  zephyr,flash-controller = &nvmctrl;
+  zephyr,code-partition = &slot0_partition;
+  zephyr,console = &sercom5;
+  zephyr,shell-uart = &sercom5;
+  zephyr,canbus = &can0;
+  zephyr,entropy = &trng;
+  zephyr,sdhc = &sdhc0;
+ };
+
+ aliases {
+  led0 = &led0;
+  led1 = &led1;
+  sw0 = &button0;
+  sw1 = &button1;
+  spi0 = &sercom2;
+  i2c0 = &sercom4;
+  sdhc0 = &sdhc0;
+ };
+
+ leds {
+  compatible = "gpio-leds";
+
+  led0: led_0 {
+   gpios = <&portd_secure 20 (1 << 0)>;
+   label = "LED0";
+  };
+
+  led1: led_1 {
+   gpios = <&portb_secure 25 (1 << 0)>;
+   label = "LED1";
+  };
+ };
+
+ buttons {
+  compatible = "gpio-keys";
+
+  button0: button_0 {
+   gpios = <&portb_secure 26 ((1 << 4) | (1 << 0))>;
+   label = "SW0";
+   zephyr,code = <11>;
+  };
+
+  button1: button_1 {
+   gpios = <&portd_secure 2 ((1 << 4) | (1 << 0))>;
+   label = "SW1";
+   zephyr,code = <2>;
+  };
+ };
+};
+
+&flash0 {
+ partitions {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  ranges;
+# 88 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts"
+  boot_partition: partition@0 {
+   compatible = "zephyr,mapped-partition";
+   label = "mcuboot";
+   reg = <0x00000000 ((128) * 1024)>;
+  };
+
+
+  slot0_partition: partition@4000000 {
+   compatible = "zephyr,mapped-partition";
+   label = "image-0";
+   reg = <0x04000000 ((1008) * 1024)>;
+  };
+
+
+  slot1_partition: partition@40fc000 {
+   compatible = "zephyr,mapped-partition";
+   label = "image-1";
+   reg = <0x040fc000 ((1008) * 1024)>;
+  };
+
+
+  storage_partition: partition@41f8000 {
+   compatible = "zephyr,mapped-partition";
+   label = "storage";
+   reg = <0x041f8000 ((32) * 1024)>;
+  };
+ };
+};
+
+&cpu0 {
+ clock-frequency = <120000000>;
+};
+
+&clock {
+ compatible = "microchip,pic32ck-sg-gc-clock";
+
+ xosc: xosc {
+  compatible = "microchip,pic32ck-sg-gc-xosc";
+  xosc-enable = <1>;
+  xosc-xtal-en = <1>;
+  xosc-auto-gain-control-loop-en = <0>;
+  xosc-clock-switch-back-en = <0>;
+  xosc-frequency = <12000000>;
+  xosc-on-demand-en = <0>;
+  xosc-startup-time = <500000>;
+  xosc-clock-failure-detection-en = <0>;
+  xosc-safe-clock-frequency = <48>;
+  xosc-usbhs-ref-clock-div = "usbhs-pll-ref-xosc-clock-div-1";
+ };
+
+ xosc32k: xosc32k {
+  compatible = "microchip,pic32ck-sg-gc-xosc32k";
+  xosc32k-enable = <1>;
+  xosc32k-xtal-en = <1>;
+  xosc32k-frequency = <32768>;
+  xosc32k-on-demand-en = <0>;
+  xosc32k-control-gain-mode = "lower-gain-mode-value";
+  xosc32k-servo-loop-en = <1>;
+  xosc32k-gain-boost = <1>;
+  xosc32k-startup-time = <1000>;
+  xosc32k-rtc-clk-selection-en = <1>;
+  xosc32k-cfd-en = <0>;
+  xosc32k-cfd-prescaler = <0>;
+  xosc32k-cfd-switchback-en = <0>;
+ };
+
+ dfll48m: dfll48m {
+  compatible = "microchip,pic32ck-sg-gc-dfll48m";
+  dfll48m-src-gclk = "gclk1";
+  dfll48m-enable = <1>;
+  dfll48m-closed-loop-en = <0>;
+  dfll48m-on-demand-en = <1>;
+  dfll48m-usb-clock-recovery-mode = <1>;
+  dfll48m-wait-lock-en = <1>;
+  dfll48m-quick-lock-dis = <1>;
+  dfll48m-chill-cycle-dis = <1>;
+  dfll48m-lose-lock-en = <1>;
+  dfll48m-stable-freq-en = <1>;
+  dfll48m-tune-max-step = <1>;
+  dfll48m-multiply-factor = <1>;
+ };
+
+ pll: pll {
+  compatible = "microchip,pic32ck-sg-gc-pll";
+
+  pll0: pll0 {
+   compatible = "microchip,pic32ck-sg-gc-pllchild";
+
+   subsystem = <(((2) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0) << 8) | 0)>;
+   pll-enable = <1>;
+   pll-on-demand-en = <0>;
+   pll-bandwidth-sel = "bwsel-1";
+   pll-src = "xosc";
+   pll-ref-division-factor = <3>;
+   pll-feedback-divider-factor = <300>;
+   pll-freq-division-factor-int = <0>;
+   pll-freq-division-factor-rem = <0>;
+
+   pll0out0: pll0out0 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 0)>;
+    pll-output-division-factor = <10>;
+    pll-output-en = <1>;
+   };
+
+   pll0out1: pll0out1 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 1)>;
+    pll-output-division-factor = <25>;
+    pll-output-en = <1>;
+   };
+
+   pll0out2: pll0out2 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 2)>;
+    pll-output-division-factor = <12>;
+    pll-output-en = <1>;
+   };
+
+   pll0out3: pll0out3 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 3)>;
+    pll-output-division-factor = <8>;
+    pll-output-en = <0>;
+   };
+
+   pll0out4: pll0out4 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 4)>;
+    pll-output-division-factor = <8>;
+    pll-output-en = <0>;
+   };
+
+   pll0out5: pll0out5 {
+    subsystem = <(((3) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 5)>;
+    pll-output-division-factor = <8>;
+    pll-output-en = <0>;
+   };
+  };
+ };
+
+ gclkgen: gclkgen {
+  compatible = "microchip,pic32ck-sg-gc-gclkgen";
+
+  gclkgen0 {
+   subsystem = <(((6) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 0)>;
+   gclkgen-en = <1>;
+   gclkgen-run-in-standby-en = <0>;
+   gclkgen-ext-input-frequency = <0>;
+   gclkgen-src = "pll0_0";
+   gclkgen-output-off-val = "logic-level-0";
+   gclkgen-input-frequency = <0>;
+   gclkgen-div-select = "div-factor";
+   gclkgen-div-factor = <1>;
+   gclkgen-duty-50-50-en = <0>;
+   gclkgen-out-clock-signal = <0>;
+  };
+
+  gclkgen1 {
+   subsystem = <(((6) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 1)>;
+   gclkgen-en = <1>;
+   gclkgen-run-in-standby-en = <0>;
+   gclkgen-ext-input-frequency = <0>;
+   gclkgen-src = "pll0_0";
+   gclkgen-output-off-val = "logic-level-0";
+   gclkgen-input-frequency = <0>;
+   gclkgen-div-select = "div-factor";
+   gclkgen-div-factor = <2>;
+   gclkgen-duty-50-50-en = <0>;
+   gclkgen-out-clock-signal = <0>;
+  };
+
+
+  gclkgen2 {
+   subsystem = <(((6) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 2)>;
+   gclkgen-en = <1>;
+   gclkgen-run-in-standby-en = <0>;
+   gclkgen-ext-input-frequency = <0>;
+   gclkgen-src = "pll0_1";
+   gclkgen-output-off-val = "logic-level-0";
+   gclkgen-input-frequency = <0>;
+   gclkgen-div-select = "div-factor";
+   gclkgen-div-factor = <1>;
+   gclkgen-duty-50-50-en = <0>;
+   gclkgen-out-clock-signal = <0>;
+  };
+
+
+  gclkgen3 {
+   subsystem = <(((6) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 3)>;
+   gclkgen-en = <1>;
+   gclkgen-run-in-standby-en = <0>;
+   gclkgen-ext-input-frequency = <0>;
+   gclkgen-src = "pll0_2";
+   gclkgen-output-off-val = "logic-level-0";
+   gclkgen-input-frequency = <0>;
+   gclkgen-div-select = "div-factor";
+   gclkgen-div-factor = <1>;
+   gclkgen-duty-50-50-en = <0>;
+   gclkgen-out-clock-signal = <0>;
+  };
+
+
+  gclkgen4 {
+   subsystem = <(((6) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((0x3f) << 8) | 4)>;
+   gclkgen-en = <1>;
+   gclkgen-run-in-standby-en = <0>;
+   gclkgen-ext-input-frequency = <0>;
+   gclkgen-src = "xosc";
+   gclkgen-output-off-val = "logic-level-0";
+   gclkgen-input-frequency = <0>;
+   gclkgen-div-select = "div-factor";
+   gclkgen-div-factor = <1>;
+   gclkgen-duty-50-50-en = <0>;
+   gclkgen-out-clock-signal = <0>;
+  };
+ };
+
+ gclkperiph: gclkperiph {
+  compatible = "microchip,pic32ck-sg-gc-gclkperiph";
+  #clock-cells = <1>;
+
+  can0 {
+   subsystem = <(((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((39) << 8) | 48)>;
+   gclkperiph-src = "gclk0";
+   gclkperiph-en = <1>;
+  };
+
+  usb0 {
+   subsystem = <(((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((46) << 8) | 55)>;
+   gclkperiph-src = "gclk2";
+   gclkperiph-en = <1>;
+  };
+
+  sdhc0 {
+   subsystem = <(((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((44) << 8) | 53)>;
+   gclkperiph-src = "gclk3";
+   gclkperiph-en = <1>;
+  };
+
+  sdhc0_slow {
+   subsystem = <(((7) << 26) | ((0x3f) << 20) | ((0x3f) << 14) | ((18) << 8) | 16)>;
+   gclkperiph-src = "gclk4";
+   gclkperiph-en = <1>;
+  };
+ };
+
+ mclkcpu: mclkcpu {
+  compatible = "microchip,pic32ck-sg-gc-mclkcpu";
+  mclk-div = "DIV1";
+ };
+
+ mclkperiph: mclkperiph {
+  compatible = "microchip,pic32ck-sg-gc-mclkperiph";
+  #clock-cells = <1>;
+
+  usb0 {
+   subsystem = <(((9) << 26) | ((3) << 20) | ((17) << 14) | ((0x3f) << 8) | 62)>;
+   mclk-en = <1>;
+  };
+
+  usbhs0 {
+   subsystem = <(((9) << 26) | ((0) << 20) | ((20) << 14) | ((0x3f) << 8) | 14)>;
+   mclk-en = <1>;
+  };
+
+  sdhc0 {
+   subsystem = <(((9) << 26) | ((0) << 20) | ((17) << 14) | ((0x3f) << 8) | 11)>;
+   mclk-en = <1>;
+  };
+ };
+};
+
+&tcc1 {
+ compatible = "microchip,tcc-g1-counter";
+ max-bit-width = <32>;
+ prescaler = <8>;
+ status = "okay";
+};
+
+&portb_secure {
+ status = "okay";
+};
+
+&portd_secure {
+ status = "okay";
+};
+
+&sercom4 {
+ compatible = "microchip,sercom-g1-i2c";
+ #address-cells = <1>;
+ #size-cells = <0>;
+ clock-frequency = <400000>;
+ pinctrl-0 = <&sercom4_i2c_default>;
+ pinctrl-names = "default";
+ status = "okay";
+
+ eeprom: eeprom@5e {
+  compatible = "atmel,at24", "atmel,24mac402";
+  reg = <0x5e>;
+  size = <256>;
+  pagesize = <16>;
+  address-width = <8>;
+  timeout = <5>;
+
+  nvmem-layout {
+   compatible = "fixed-layout";
+   #address-cells = <1>;
+   #size-cells = <1>;
+
+   mac_address: mac-address@9a {
+    reg = <0x9a 6>;
+    #nvmem-cell-cells = <0>;
+   };
+  };
+ };
+};
+
+&sercom5 {
+ compatible = "microchip,sercom-g1-uart";
+ #address-cells = <1>;
+ #size-cells = <0>;
+ current-speed = <115200>;
+ data-bits = <8>;
+ parity = "none";
+ stop-bits = "1";
+ rxpo = <1>;
+ txpo = <0>;
+ pinctrl-0 = <&sercom5_uart_default>;
+ pinctrl-names = "default";
+ status = "okay";
+};
+
+&trng {
+ status = "okay";
+};
+
+&can0 {
+ pinctrl-0 = <&can0_default>;
+ pinctrl-names = "default";
+ status = "okay";
+};
+
+&sercom2 {
+ compatible = "microchip,sercom-g1-spi";
+ dipo = <3>;
+ dopo = <0>;
+ #address-cells = <1>;
+ #size-cells = <0>;
+ pinctrl-0 = <&sercom2_spi_default>;
+ pinctrl-names = "default";
+ status = "okay";
+};
+
+&usb0 {
+ pinctrl-0 = <&usb_dc_default>;
+ pinctrl-names = "default";
+};
+
+
+
+
+
+
+
+&hsusb0 {
+ status = "disabled";
+};
+
+zephyr_udc0: &usb0 {
+ status = "okay";
+};
+# 466 "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts"
+&gmac {
+ compatible = "microchip,gmac-g1-eth";
+ pinctrl-0 = <&gmac_rmii>;
+ pinctrl-names = "default";
+
+ nvmem-cells = <&mac_address>;
+ nvmem-cell-names = "mac-address";
+ phy-handle = <&phy>;
+ status = "okay";
+};
+
+&mdio {
+ compatible = "microchip,gmac-g1-mdio";
+ pinctrl-0 = <&mdio_default>;
+ pinctrl-names = "default";
+ status = "okay";
+
+ phy: ethernet-phy@0 {
+  compatible = "ethernet-phy";
+  status = "okay";
+  reg = <0>;
+ };
+};
+
+&sdhc0 {
+ compatible = "microchip,sdhc-g1";
+ pinctrl-0 = <&sdhc0_default>;
+ pinctrl-names = "default";
+ auto-cmd23;
+ status = "okay";
+
+ disk {
+  compatible = "zephyr,sdmmc-disk";
+  disk-name = "SD";
+  status = "okay";
+ };
+};
+# 0 "<command-line>" 2
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/uac2_implicit_feedback/app.overlay" 1
+
+
+
+
+
+
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/usb/audio.h" 1 3 4
+# 8 "D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/uac2_implicit_feedback/app.overlay" 2
+
+/ {
+ uac2_headset: usb_audio2 {
+  compatible = "zephyr,uac2";
+  status = "okay";
+  full-speed;
+  high-speed;
+  audio-function = <0x04>;
+
+  uac_aclk: aclk {
+   compatible = "zephyr,uac2-clock-source";
+   clock-type = "internal-programmable";
+   frequency-control = "host-programmable";
+   sampling-frequencies = <48000>;
+  };
+
+  out_terminal: out_terminal {
+   compatible = "zephyr,uac2-input-terminal";
+   clock-source = <&uac_aclk>;
+   terminal-type = <0x0101>;
+   front-left;
+   front-right;
+  };
+
+  headphones_output: headphones {
+   compatible = "zephyr,uac2-output-terminal";
+   data-source = <&out_terminal>;
+   clock-source = <&uac_aclk>;
+   terminal-type = <0x0402>;
+   assoc-terminal = <&mic_input>;
+  };
+
+  mic_input: microphone {
+   compatible = "zephyr,uac2-input-terminal";
+   clock-source = <&uac_aclk>;
+   terminal-type = <0x0402>;
+
+
+
+
+
+
+   front-left;
+  };
+
+  in_terminal: in_terminal {
+   compatible = "zephyr,uac2-output-terminal";
+   data-source = <&mic_input>;
+   clock-source = <&uac_aclk>;
+   terminal-type = <0x0101>;
+  };
+
+  as_iso_out: out_interface {
+   compatible = "zephyr,uac2-audio-streaming";
+   linked-terminal = <&out_terminal>;
+   implicit-feedback;
+   subslot-size = <2>;
+   bit-resolution = <16>;
+  };
+
+  as_iso_in: in_interface {
+   compatible = "zephyr,uac2-audio-streaming";
+   linked-terminal = <&in_terminal>;
+   implicit-feedback;
+   subslot-size = <2>;
+   bit-resolution = <16>;
+  };
+ };
+};
+# 0 "<command-line>" 2
+# 1 "D:/ZephyrProject/mchp_zephyrproject/zephyr/misc/empty_file.c"

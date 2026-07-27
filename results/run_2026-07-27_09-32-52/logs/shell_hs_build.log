@@ -1,0 +1,3 @@
+$ D:\ZephyrProject\.venv\Scripts\west.exe build -p auto -b pic32ck_sg01_cult -d D:\ZephyrProject\usb_validation\results\.build_cache\pic32ck_sg01_cult_shell_hs D:\ZephyrProject\mchp_zephyrproject\zephyr\samples\subsys/usb/shell
+
+ninja: no work to do.

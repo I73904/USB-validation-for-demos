@@ -1,0 +1,22 @@
+empty_file.o: \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/misc/empty_file.c \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/mem.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc_144.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg_gc.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/armv8-m.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common/skeleton.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/gpio/gpio.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/clock/mchp_pic32ck_sg_gc_clock.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01_144.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_2051_sg_gc.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm/microchip/pic32c/pic32ck_sg_gc/common/pic32ck_sg01_gc01.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/input/input-event-codes.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/i2c/i2c.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult-pinctrl.dtsi \
+ D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/pic32ck_sg01/pic32ck2051sg01144-pinctrl.h \
+ D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include/dt-bindings/pic32c/pic32ck_sg_gc/common/mchp_pinctrl_pinmux_pic32c.h \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/uac2_explicit_feedback/app.overlay \
+ D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr/dt-bindings/usb/audio.h

@@ -1,0 +1,50 @@
+cmake:
+  application:
+    configuration-dir: 'D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/shell'
+    source-dir: 'D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/shell'
+  board:
+    name: 'pic32ck_sg01_cult'
+    path:
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult'
+    qualifiers: 'pic32ck2051sg01144'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/bindings'
+    files:
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult.dts'
+    include-dirs:
+     - 'D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/include'
+     - 'D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip/dts'
+     - 'D:/ZephyrProject/mchp_zephyrproject/modules/hal/atmel/include'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/include'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/include/zephyr'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/common'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/vendor'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/rx'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/x86'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/xtensa'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/sparc'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/riscv'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/posix'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm64'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arm'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts/arc'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/dts'
+  kconfig:
+    files:
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/pic32ck_sg01_cult_defconfig'
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/shell/prj.conf'
+    user-files:
+     - 'D:/ZephyrProject/mchp_zephyrproject/zephyr/samples/subsys/usb/shell/prj.conf'
+  toolchain:
+    name: 'zephyr'
+    path: 'C:/Users/I73904/zephyr-sdk-1.0.1'
+  zephyr:
+    version: '4.4.0'
+    zephyr-base: 'D:/ZephyrProject/mchp_zephyrproject/zephyr'
+version: '0.1.0'
+west:
+  command: 'D:\ZephyrProject\.venv\Scripts\west build -p always -b pic32ck_sg01_cult -d D:\ZephyrProject\usb_validation\results\run_2026-07-23_23-30-28\build\shell_hs D:\ZephyrProject\mchp_zephyrproject\zephyr\samples\subsys/usb/shell'
+  topdir: 'D:\ZephyrProject\mchp_zephyrproject'
+  version: '1.5.0'

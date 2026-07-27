@@ -1,0 +1,12 @@
+# WARNING. THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!
+#
+# This file contains build system settings derived from your modules.
+#
+# Modules may be set via ZEPHYR_MODULES, ZEPHYR_EXTRA_MODULES,
+# and/or the west manifest file.
+#
+# See the Modules guide for more information.
+"DTS_ROOT":"D:/ZephyrProject/mchp_zephyrproject/microchip-zsdk"
+"SOC_ROOT":"D:/ZephyrProject/mchp_zephyrproject/microchip-zsdk"
+"DTS_ROOT":"D:/ZephyrProject/mchp_zephyrproject/modules/hal/microchip"
+"DTS_ROOT":"D:/ZephyrProject/mchp_zephyrproject/modules/hal/atmel"
