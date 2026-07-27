@@ -343,13 +343,27 @@ Available USB-capable Microchip boards:
    1   pic32ck_gc01_cult        HS/FS        PIC32CK GC01 Curiosity Ultra
    2   pic32ck_sg01_cult        HS/FS        PIC32CK SG01 Curiosity Ultra (recommended)
    3   pic32cx_sg41_cult        FS           PIC32CX SG41 Curiosity Ultra
-   ...
+   4   pic32cx_sg61_cult        FS           PIC32CX SG61 Curiosity Ultra
+   5   sam_e54_xpro             FS           SAM E54 Xplained Pro
 Select board [1-5] (Enter = pic32ck_sg01_cult):
 ```
 
-Press Enter for the default, or type a number / board name. The **SPEEDS**
-column shows what each board supports — HS/FS boards get both, FS-only boards
+The full set is **auto-discovered** from the tree (any Microchip board whose
+`.dts` exposes `zephyr_udc0`), so it may vary by branch. On the
+`Z4M-5565` branch it is:
+
+| # | Board (`--board`) | Speeds | Full name |
+|--:|-------------------|--------|-----------|
+| 1 | `pic32ck_gc01_cult` | HS + FS | PIC32CK GC01 Curiosity Ultra |
+| 2 | `pic32ck_sg01_cult` | HS + FS | PIC32CK SG01 Curiosity Ultra *(default / recommended)* |
+| 3 | `pic32cx_sg41_cult` | FS only | PIC32CX SG41 Curiosity Ultra |
+| 4 | `pic32cx_sg61_cult` | FS only | PIC32CX SG61 Curiosity Ultra |
+| 5 | `sam_e54_xpro` | FS only | SAM E54 Xplained Pro |
+
+Press Enter for the default, or type a number / board name. The **Speeds**
+column is what each board supports — HS/FS boards get both; **FS-only** boards
 skip the HS runs automatically (recorded as `SKIP`, never a hard failure).
+Run `python run_usb_validation.py --list-boards` to print the current set.
 
 - List boards without running anything: `python run_usb_validation.py --list-boards`
 - Pick non-interactively (CI): `python run_usb_validation.py --board pic32ck_sg01_cult`
