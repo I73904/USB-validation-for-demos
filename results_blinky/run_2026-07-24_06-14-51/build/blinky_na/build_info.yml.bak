@@ -1,6 +1,0 @@
-west:
-  command: D:\ZephyrProject\.venv\Scripts\west build -p always -b pic32ck_sg01_cult
-    -d D:\ZephyrProject\usb_validation\results_blinky\run_2026-07-24_06-14-51\build\blinky_na
-    D:\ZephyrProject\mchp_zephyrproject\zephyr\samples\basic/blinky
-  topdir: D:\ZephyrProject\mchp_zephyrproject
-  version: 1.5.0

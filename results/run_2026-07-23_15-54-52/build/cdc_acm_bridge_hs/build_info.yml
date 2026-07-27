@@ -1,6 +1,0 @@
-west:
-  command: D:\ZephyrProject\.venv\Scripts\west build -p always -b pic32ck_sg01_cult
-    -d D:\ZephyrProject\usb_validation\results\run_2026-07-23_15-54-52\build\cdc_acm_bridge_hs
-    D:\ZephyrProject\mchp_zephyrproject\zephyr\samples\subsys/usb/cdc_acm_bridge
-  topdir: D:\ZephyrProject\mchp_zephyrproject
-  version: 1.5.0

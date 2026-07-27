@@ -1,7 +1,0 @@
-$ D:\ZephyrProject\.venv\Scripts\west.exe flash -d D:\ZephyrProject\usb_validation\results\run_2026-07-23_15-38-37\build\hid_keyboard_hs
-
--- west flash: rebuilding
-ninja: no work to do.
--- west flash: using runner mplab_ipe
--- runners.mplab_ipe: mass erase requested
-FATAL ERROR: required program ipecmd.exe not found; install it or add its location to PATH

@@ -1,2 +1,0 @@
-# Load Zephyr board Kconfig descriptions.
-osource "D:/ZephyrProject/mchp_zephyrproject/zephyr/boards/microchip/pic32c/pic32ck_sg01_cult/Kconfig"
