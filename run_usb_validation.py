@@ -258,6 +258,78 @@ def send_console_commands(port, cmds, baud=115200, boot_wait=2.0):
 
 
 # =============================================================================
+# YKUSH switchable USB hub (optional, opt-in via --ykush-port-hs/-fs)
+# =============================================================================
+def ykush_power(port, on, serial=None, timeout=30):
+    """
+    Power the board's USB *device* cable on/off via ykush.py, run under the venv
+    Python (which has the `hid` package). Returns (ok, output).
+    """
+    script = os.path.join(HERE, "ykush.py")
+    cmd = [PYEXE, script, ("on" if on else "off"), str(port)]
+    if serial:
+        cmd += ["--serial", serial]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=timeout)
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)
+    return res.returncode == 0, ((res.stdout or "") + (res.stderr or "")).strip()
+
+
+def ykush_enabled(args):
+    return bool(args.ykush_port_hs or args.ykush_port_fs)
+
+
+def ykush_present(serial=None, timeout=20):
+    """Return (found, info) — is a YKUSH hub actually attached?"""
+    cmd = [PYEXE, os.path.join(HERE, "ykush.py"), "present"]
+    if serial:
+        cmd += ["--serial", serial]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=timeout)
+    except Exception:  # noqa: BLE001
+        return False, ""
+    return res.returncode == 0, ((res.stdout or "") + (res.stderr or "")).strip()
+
+
+def ykush_set_for_speed(speed, args):
+    """
+    Connect the USB device connector for `speed` and disconnect the other, so
+    only the connector under test is live. No-op unless ykush is active.
+    HS -> USB-C, FS -> Micro-B.
+    """
+    if not getattr(args, "ykush_active", False):
+        return
+    serial = args.ykush_serial or None
+    want = args.ykush_port_hs if speed == "hs" else args.ykush_port_fs
+    other = args.ykush_port_fs if speed == "hs" else args.ykush_port_hs
+    if other and other != want:
+        ok, _ = ykush_power(other, False, serial)
+        log_line("ykush       : {} connector (port {}) -> OFF ({})".format(
+            "FS" if speed == "hs" else "HS", other, "ok" if ok else "fail"))
+    if want:
+        ok, out = ykush_power(want, True, serial)
+        log_line("ykush       : {} connector (port {}) -> ON ({})".format(
+            speed.upper(), want, "ok" if ok else "FAILED " + out[:60]))
+        time.sleep(2)  # let the host enumerate the newly-powered connector
+    else:
+        log_line("ykush       : no port set for {} - manage that cable manually".format(
+            speed.upper()))
+
+
+def ykush_restore_all(args):
+    """Leave both configured connectors powered on at the end of a run."""
+    if not getattr(args, "ykush_active", False):
+        return
+    serial = args.ykush_serial or None
+    for p in (args.ykush_port_hs, args.ykush_port_fs):
+        if p:
+            ykush_power(p, True, serial)
+
+
+# =============================================================================
 # FS device-tree patch (temporary, always restored)
 # =============================================================================
 FS_USB0_BLOCK = """zephyr_udc0: &usb0 {
@@ -939,6 +1011,14 @@ def parse_args():
                          "(e.g. shell); auto-detected if omitted")
     ap.add_argument("--console-baud", type=int, default=115200,
                     help="baud rate for --console (default 115200)")
+    ap.add_argument("--ykush-port-hs", type=int, default=0,
+                    help="YKUSH port for the HS (USB-C) device connector; "
+                         "enables ykush for HS runs (0 = disabled)")
+    ap.add_argument("--ykush-port-fs", type=int, default=0,
+                    help="YKUSH port for the FS (Micro-B) device connector; "
+                         "enables ykush for FS runs (0 = disabled)")
+    ap.add_argument("--ykush-serial", default="",
+                    help="target a specific YKUSH hub by serial number")
     ap.add_argument("--enum-timeout", type=int, default=30)
     ap.add_argument("--build-timeout", type=int, default=1800)
     ap.add_argument("--flash-timeout", type=int, default=600)
@@ -1197,6 +1277,19 @@ def main():
     log_line("Flasher     : {}".format(args.flasher))
     log_line("Build-only  : {}".format(args.build_only))
 
+    # detect the hub once; if requested but absent, warn and continue (assume
+    # cables are connected manually) rather than failing per speed.
+    args.ykush_active = False
+    if ykush_enabled(args):
+        found, info = ykush_present(args.ykush_serial or None)
+        if found:
+            args.ykush_active = True
+            log_line("ykush       : {} - HS->port {}  FS->port {}".format(
+                info or "hub detected", args.ykush_port_hs or "-", args.ykush_port_fs or "-"))
+        else:
+            log_line("WARNING: --ykush-port-* set but no YKUSH hub found; cable "
+                     "switching DISABLED - assuming device cables are connected manually.")
+
     # FS selection method: prefer the official snippet (newer branches), else
     # fall back to temporarily patching the board .dts (older branches).
     usbfs_snippet = find_usbfs_snippet(args.zephyr_base)
@@ -1221,6 +1314,10 @@ def main():
                                         build=SKIP, flash=SKIP, enum=SKIP,
                                         reason="board has no {} USB controller".format(speed.upper())))
                 continue
+
+            # connect this speed's USB device connector, disconnect the other
+            if not args.build_only:
+                ykush_set_for_speed(speed, args)
 
             # Decide how FS is selected for this speed:
             #   * snippet    -> build with -S <snippet>, no .dts change (preferred)
@@ -1251,6 +1348,8 @@ def main():
     finally:
         # belt-and-suspenders: never leave the board .dts patched
         restore_dts(dts_path)
+        # leave both device connectors powered on for the user
+        ykush_restore_all(args)
 
     meta = dict(board=board["name"], flasher=args.flasher, vid=args.vid,
                 generated=ts(), stamp=run_stamp, zephyr_base=args.zephyr_base,

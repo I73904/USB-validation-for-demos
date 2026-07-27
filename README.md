@@ -25,6 +25,7 @@ fails to build, flash, or enumerate is listed at the end.
 |------|---------|
 | `run_usb_validation.py` | Main tool — the HS/FS build/flash/enumerate sweep |
 | `run_blinky_check.py` | Blinky sanity check (SG01 + `samples/basic/blinky`) |
+| `ykush.py` | Yepkit YKUSH switchable-USB-hub control (module + CLI) for connecting/disconnecting the USB cable |
 | `demos.py` | Auto-discovers USB device demos from the tree (`depends_on: usbd`); holds a fallback list + speed/VID constants |
 | `README.md` | This document |
 | `results\` | Generated: timestamped run folders + `.build_cache\` |
@@ -235,6 +236,68 @@ finally a prompt. Override with `--west <path\to\west.exe>` or `--venv <dir>`.
 
 ---
 
+## USB power switching (YKUSH)
+
+A [Yepkit YKUSH](https://www.yepkit.com/product/300110/YKUSH) switchable USB hub
+lets the tests control the **USB device cable** programmatically — needed to
+automate two modes: cable **connected** for the `samples` enumeration/transaction
+tests, and cable **disconnected** for the `tests/drivers/udc` driver tests
+(which must run with no USB host attached).
+
+`ykush.py` is a standalone module + CLI (uses the `hid` package in the venv):
+
+```bat
+python ykush.py on  1        :: power port 1 on  (device connects / re-enumerates)
+python ykush.py off 1        :: power port 1 off (device disconnects)
+python ykush.py status 1     :: query port state
+python ykush.py cycle 1      :: off, wait, on
+python ykush.py present      :: is a YKUSH hub attached? (exit 0 = yes)
+```
+
+Because HS and FS use **different connectors** (USB-C = HS, Micro-B = FS) and only
+one controller is active at a time, each connector goes on its **own YKUSH port**.
+Tell the validator the mapping:
+
+```bat
+:: e.g. USB-C (HS) on port 2, Micro-B (FS) on port 3, DEBUG USB straight to the PC
+python run_usb_validation.py --board pic32ck_sg01_cult --ykush-port-hs 2 --ykush-port-fs 3
+```
+
+The two test modes use **opposite** cable logic:
+
+- **Samples flow (implemented).** The demo needs a host to enumerate, so the run
+  **connects** the tested speed's connector and disconnects the other — only the
+  connector under test is live. At the end both are restored to on.
+
+  | Run | Port for HS (USB-C) | Port for FS (Micro-B) |
+  |-----|:---:|:---:|
+  | samples **HS** | **ON** | OFF |
+  | samples **FS** | OFF | **ON** |
+
+- **Driver-test flow (`tests/drivers/udc`) — planned, Step 4.** The test must run
+  with **no host attached**, so it **disconnects** the connector for the
+  controller under test (udc-HS → HS port OFF; udc-FS → FS port OFF), runs
+  `twister --device-testing` over the serial console, reads the ztest verdict,
+  then restores power. *Caveat to validate on hardware:* the udc test notes the
+  controller "cannot be enabled without VBUS" — a ykush port-off cuts VBUS **and**
+  data, so if the PIC32CK UDC needs VBUS to enable we may need a different
+  disconnect (ykush is power-only). This is confirmed when Step 4 is built.
+
+`--ykush-serial` targets a specific hub if you have more than one.
+
+**If the hub isn't connected:**
+- With **no** `--ykush-port-*` → ykush is never used; behaviour is unchanged. The
+  full samples sweep still runs — you just plug the cables in by hand (USB-C for
+  HS, Micro-B for FS; a speed whose cable isn't connected builds/flashes but
+  fails enumeration).
+- With `--ykush-port-*` set but **no hub found** → the run prints one warning,
+  **disables switching, and continues** assuming the cables are connected
+  manually (it never crashes or hangs). `python ykush.py present` confirms
+  whether a hub is detected.
+
+> Keep the **DEBUG USB out of the YKUSH** (plug it straight into the PC) so
+> flashing keeps working when a device connector is powered off.
+
 ## Choosing the board
 
 When you run without `--board`, the tool **discovers the USB-capable Microchip
@@ -308,6 +371,9 @@ python run_usb_validation.py --flasher twister
 | `--no-cache` | off | Build inside the timestamped run dir (no caching) |
 | `--console <COMx>` | auto-detect | Serial console for demos that need shell init (e.g. `shell`) |
 | `--console-baud <n>` | `115200` | Baud rate for `--console` |
+| `--ykush-port-hs <n>` | `0` (off) | YKUSH port for the HS (USB-C) connector; enables ykush for HS runs |
+| `--ykush-port-fs <n>` | `0` (off) | YKUSH port for the FS (Micro-B) connector; enables ykush for FS runs |
+| `--ykush-serial <s>` | first hub | Target a specific YKUSH hub by serial |
 | `--enum-timeout <s>` | `30` | How long to wait for the device to enumerate |
 | `--vid <hex>` | `2FE3` | USB Vendor ID that counts as "enumerated" |
 | `--zephyr-base <path>` | auto-detect | Zephyr base or workspace root |
