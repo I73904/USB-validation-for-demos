@@ -263,6 +263,38 @@ Tell the validator the mapping:
 python run_usb_validation.py --board pic32ck_sg01_cult --ykush-port-hs 2 --ykush-port-fs 3
 ```
 
+### Wiring diagram
+
+```
+                      PC / host (runs the script)
+                        |                          |
+       DEBUG USB        |                          |  USB (YKUSH upstream)
+   (flash + power +     |                          |
+        VCOM)           |                          v
+                        |                +----------------------------------+
+                        |                |            YKUSH hub             |
+                        |                |   port1     port2      port3     |
+                        |                +-------------+----------+---------+
+                        |                              | HS       | FS
+                        |                              | (on/off) | (on/off)
+                        v                              v          v
+   +--------------------------------------------------------------------------+
+   |                     PIC32CK SG01 Curiosity Ultra                          |
+   |   [DEBUG / PKoB4]          [USB-C = HS / hsusb0]     [Micro-B = FS / usb0] |
+   +--------------------------------------------------------------------------+
+
+   Samples  (connect the tested connector):
+       HS run  ->  port 2 ON ,  port 3 OFF
+       FS run  ->  port 2 OFF,  port 3 ON
+   Driver tests / tests/drivers/udc  (disconnect the tested connector - planned, Step 4):
+       udc-HS  ->  port 2 OFF          udc-FS  ->  port 3 OFF
+```
+
+- **DEBUG USB goes straight to the PC** (not through the YKUSH), so flashing and
+  the VCOM console keep working even when a device connector is powered off.
+- Only the **device** connectors (USB-C, Micro-B) go through the YKUSH, so the
+  script can connect/disconnect them per test.
+
 The two test modes use **opposite** cable logic:
 
 - **Samples flow (implemented).** The demo needs a host to enumerate, so the run
