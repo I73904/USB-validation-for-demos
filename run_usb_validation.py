@@ -258,6 +258,96 @@ def send_console_commands(port, cmds, baud=115200, boot_wait=2.0):
 
 
 # =============================================================================
+# data transactions (post-enumeration: verify real transfer, not just enum)
+# =============================================================================
+def find_cdc_port(vid):
+    """Return the COM port of the enumerated Zephyr CDC device (VID_<vid>), or None."""
+    import re
+    ps = ("Get-CimInstance Win32_PnPEntity | Where-Object {{ $_.Name -match '\\(COM\\d+\\)'"
+          " -and $_.PNPDeviceID -like '*VID_{}*' }} | Select-Object Name |"
+          " ConvertTo-Json -Compress").format(vid.upper())
+    try:
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            text=True, encoding="utf-8", errors="replace", timeout=30).strip()
+    except Exception:  # noqa: BLE001
+        return None
+    if not out:
+        return None
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(data, dict):
+        data = [data]
+    for d in data:
+        m = re.search(r"\((COM\d+)\)", d.get("Name") or "")
+        if m:
+            return m.group(1)
+    return None
+
+
+# pyserial snippet: threaded write + concurrent read of a known N-byte payload,
+# then compare. Concurrency avoids the deadlock the 1 KB echo ring buffer would
+# otherwise cause on a write-all-then-read-all.
+_CDC_ECHO_SNIPPET = (
+    "import sys, time, threading\n"
+    "import serial\n"
+    "port = sys.argv[1]; baud = int(sys.argv[2]); size = int(sys.argv[3])\n"
+    "payload = bytes(i & 0xFF for i in range(size))\n"
+    "ser = serial.Serial(port, baud, timeout=1, write_timeout=30)\n"
+    "try:\n"
+    "    try:\n"
+    "        ser.set_buffer_size(rx_size=1 << 20, tx_size=1 << 20)\n"
+    "    except Exception:\n"
+    "        pass\n"
+    "    ser.dtr = True; ser.rts = True\n"       # cdc_acm waits for DTR before echoing
+    "    time.sleep(0.5)\n"
+    "    ser.reset_input_buffer(); ser.reset_output_buffer()\n"
+    "    def _writer():\n"
+    "        try:\n"
+    "            for i in range(0, size, 4096):\n"
+    "                ser.write(payload[i:i + 4096])\n"
+    "            ser.flush()\n"
+    "        except Exception as e:\n"
+    "            sys.stderr.write('writer: %r\\n' % e)\n"
+    "    t = threading.Thread(target=_writer, daemon=True); t.start()\n"
+    "    received = bytearray(); last = time.time()\n"
+    "    while len(received) < size:\n"
+    "        chunk = ser.read(min(4096, size - len(received)))\n"
+    "        if chunk:\n"
+    "            received += chunk; last = time.time()\n"
+    "        elif time.time() - last > 5.0:\n"
+    "            break\n"
+    "    t.join(timeout=5)\n"
+    "    ok = bytes(received) == payload\n"
+    "    mism = -1\n"
+    "    if not ok:\n"
+    "        for j in range(min(len(received), size)):\n"
+    "            if received[j] != payload[j]:\n"
+    "                mism = j; break\n"
+    "    print('RESULT %s sent=%d recv=%d mismatch_at=%d' %\n"
+    "          ('PASS' if ok else 'FAIL', size, len(received), mism))\n"
+    "finally:\n"
+    "    ser.close()\n"
+)
+
+
+def cdc_echo_transaction(port, size, baud=115200):
+    """Send `size` bytes to the CDC echo device and read them back. Returns (ok, detail)."""
+    cmd = [PYEXE, "-c", _CDC_ECHO_SNIPPET, port, str(baud), str(size)]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=120)
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    line = next((l for l in out.splitlines() if l.startswith("RESULT")), "")
+    ok = res.returncode == 0 and line.startswith("RESULT PASS")
+    return ok, (line or out[:160])
+
+
+# =============================================================================
 # YKUSH switchable USB hub (optional, opt-in via --ykush-port-hs/-fs)
 # =============================================================================
 def ykush_power(port, on, serial=None, timeout=30):
@@ -894,18 +984,19 @@ def write_reports(results, meta, outdir):
 
     rows = []
     for r in results:
-        note = r.get("device") or r.get("reason") or r.get("note") or ""
+        note = r.get("device") or r.get("txn_detail") or r.get("reason") or r.get("note") or ""
         rows.append(
             "<tr>"
             "<td>{demo}</td><td class='c'>{speed}</td>"
             "<td class='c'>{build}</td><td class='c'>{flash}</td><td class='c'>{enum}</td>"
-            "<td>{note}</td>"
+            "<td class='c'>{txn}</td><td>{note}</td>"
             "</tr>".format(
                 demo=html.escape(r["demo"]),
                 speed=html.escape(r["speed"].upper()),
                 build=_badge(r["build"]),
                 flash=_badge(r["flash"]),
                 enum=_badge(r["enum"]),
+                txn=_badge(r.get("txn", NA)),
                 note=html.escape(note),
             )
         )
@@ -914,7 +1005,11 @@ def write_reports(results, meta, outdir):
     enum_pass = sum(1 for r in results if r["enum"] == PASS)
     build_pass = sum(1 for r in results if r["build"] == PASS)
     flash_pass = sum(1 for r in results if r["flash"] == PASS)
-    failed = [r for r in results if r["enum"] != PASS and r["build"] != SKIP]
+    txn_total = sum(1 for r in results if r.get("txn") in (PASS, FAIL))
+    txn_pass = sum(1 for r in results if r.get("txn") == PASS)
+    # a run is "failed" if it should have enumerated but didn't, or its transaction failed
+    failed = [r for r in results
+              if (r["enum"] != PASS and r["build"] != SKIP) or r.get("txn") == FAIL]
 
     failed_html = "".join(
         "<li>{} <b>{}</b> &mdash; {}</li>".format(
@@ -956,9 +1051,10 @@ def write_reports(results, meta, outdir):
   <div class="card"><div class="n">{build_pass}/{total}</div><div class="l">Build OK</div></div>
   <div class="card"><div class="n">{flash_pass}/{total}</div><div class="l">Flash OK</div></div>
   <div class="card"><div class="n">{enum_pass}/{total}</div><div class="l">Enumerated</div></div>
+  <div class="card"><div class="n">{txn_pass}/{txn_total}</div><div class="l">Transactions</div></div>
  </div>
  <table>
-  <thead><tr><th>Demo</th><th>Speed</th><th>Build</th><th>Flash</th><th>Enumerate</th><th>Detail</th></tr></thead>
+  <thead><tr><th>Demo</th><th>Speed</th><th>Build</th><th>Flash</th><th>Enumerate</th><th>Transact</th><th>Detail</th></tr></thead>
   <tbody>{rows}</tbody>
  </table>
  <div class="fail"><h3>Failed demos</h3><ul>{failed}</ul></div>
@@ -972,6 +1068,7 @@ per-run logs in <code>logs\\</code>.</footer>
         branch=html.escape(meta.get("branch", "") or "?"),
         subject=html.escape(meta.get("commit_subject", "") or ""),
         total=total, build_pass=build_pass, flash_pass=flash_pass, enum_pass=enum_pass,
+        txn_pass=txn_pass, txn_total=txn_total,
         rows="".join(rows), failed=failed_html,
     )
     html_path = os.path.join(outdir, base + ".html")
@@ -1019,6 +1116,13 @@ def parse_args():
                          "enables ykush for FS runs (0 = disabled)")
     ap.add_argument("--ykush-serial", default="",
                     help="target a specific YKUSH hub by serial number")
+    ap.add_argument("--transactions", action="store_true",
+                    help="also run post-enumeration data transactions (e.g. CDC 64 KiB "
+                         "echo) for demos that support them; OFF by default "
+                         "(default is build + flash + enumerate only)")
+    ap.add_argument("--transaction-size", type=int, default=65536,
+                    help="bytes for data transactions when --transactions is set "
+                         "(default 65536 = 64 KiB)")
     ap.add_argument("--enum-timeout", type=int, default=30)
     ap.add_argument("--build-timeout", type=int, default=1800)
     ap.add_argument("--flash-timeout", type=int, default=600)
@@ -1038,7 +1142,7 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
     label = "{} [{}]".format(key, speed.upper())
     log_line("================ {} ================".format(label))
     rec = dict(demo=key, speed=speed, note=demo["note"],
-               build=NA, flash=NA, enum=NA, reason="", device="")
+               build=NA, flash=NA, enum=NA, txn=NA, reason="", device="")
     try:
         # ---- build ----
         log_line("BUILD  {} ...".format(label))
@@ -1139,6 +1243,26 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
             else:
                 log_line("       no new USB devices detected (check the USB *device* "
                          "cable / try increasing --enum-timeout)")
+
+        # ---- data transaction (verify real transfer, not just enumeration) ----
+        txn_kind = demos.TRANSACTIONS.get(demo["key"])
+        if txn_kind and estatus == PASS and args.transactions:
+            if txn_kind == "cdc_echo":
+                cport = find_cdc_port(args.vid)
+                if not cport:
+                    rec["txn"] = FAIL
+                    rec["reason"] = rec.get("reason") or \
+                        "no CDC COM port (VID_{}) found for transaction".format(args.vid)
+                    log_line("TXN    {} -> FAIL ({})".format(label, rec["reason"]))
+                else:
+                    log_line("TXN    {} cdc-echo {} bytes on {} ...".format(
+                        label, args.transaction_size, cport))
+                    ok_t, det = cdc_echo_transaction(cport, args.transaction_size, args.console_baud)
+                    rec["txn"] = PASS if ok_t else FAIL
+                    rec["txn_detail"] = det
+                    log_line("TXN    {} -> {}  {}".format(label, rec["txn"], det))
+                    if not ok_t and not rec.get("reason"):
+                        rec["reason"] = "CDC echo transaction failed: {}".format(det)
     except Exception as exc:  # noqa: BLE001 - one demo must never abort the whole run
         import traceback
         rec["reason"] = "unexpected error: {}".format(exc)
@@ -1362,12 +1486,15 @@ def main():
     print("\n" + "=" * 68)
     print("SUMMARY  ({} runs)".format(len(results)))
     print("=" * 68)
-    print("{:20s} {:5s} {:6s} {:6s} {:6s}".format("DEMO", "SPD", "BUILD", "FLASH", "ENUM"))
+    print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s}".format(
+        "DEMO", "SPD", "BUILD", "FLASH", "ENUM", "TXN"))
     for r in results:
-        print("{:20s} {:5s} {:6s} {:6s} {:6s}  {}".format(
+        print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s} {}".format(
             r["demo"], r["speed"].upper(), r["build"], r["flash"], r["enum"],
-            r.get("reason", "")))
-    failed = [r for r in results if r["enum"] != PASS and r["build"] != SKIP and not args.build_only]
+            r.get("txn", NA), r.get("reason", "")))
+    failed = [r for r in results
+              if not args.build_only
+              and ((r["enum"] != PASS and r["build"] != SKIP) or r.get("txn") == FAIL)]
     print("-" * 68)
     if args.build_only:
         bad = [r for r in results if r["build"] == FAIL]

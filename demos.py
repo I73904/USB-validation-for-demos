@@ -38,6 +38,15 @@ CONSOLE_INIT = {
     "shell": ["usbd defcfg", "usbd enable"],
 }
 
+# Optional post-enumeration data transaction per demo (verifies real data
+# transfer, not just enumeration). Keyed by demo key -> transaction kind:
+#   "cdc_echo"  -> open the CDC COM port, send N bytes, read them back, compare
+#   "mass_file" -> write an N-byte file to the mounted drive, read back, compare
+# (mass_file is added in a later step.)
+TRANSACTIONS = {
+    "cdc_acm": "cdc_echo",
+}
+
 
 # ---------------------------------------------------------------------------
 # auto-discovery

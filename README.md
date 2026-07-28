@@ -420,6 +420,8 @@ python run_usb_validation.py --flasher twister
 | `--ykush-port-hs <n>` | `0` (off) | YKUSH port for the HS (USB-C) connector; enables ykush for HS runs |
 | `--ykush-port-fs <n>` | `0` (off) | YKUSH port for the FS (Micro-B) connector; enables ykush for FS runs |
 | `--ykush-serial <s>` | first hub | Target a specific YKUSH hub by serial |
+| `--transactions` | off | Also run post-enumeration data transactions (CDC/mass) for demos that support them |
+| `--transaction-size <n>` | `65536` | Bytes for data transactions when `--transactions` is set (64 KiB) |
 | `--enum-timeout <s>` | `30` | How long to wait for the device to enumerate |
 | `--vid <hex>` | `2FE3` | USB Vendor ID that counts as "enumerated" |
 | `--zephyr-base <path>` | auto-detect | Zephyr base or workspace root |
@@ -522,6 +524,42 @@ devices seen after the flash, to make triage quick.
 > **Two connectors:** flashing uses the board's **DEBUG** port; enumeration is
 > checked on the **USB device** port (Type-C for HS, Micro-B for FS). Both must
 > be connected to this PC for a full run.
+
+---
+
+## Data transactions (beyond enumeration)
+
+Data transactions are **off by default** — a normal run does just
+**build + flash + enumerate**. Add **`--transactions`** to also run a **data
+transfer** after each successful enumeration, proving the endpoint actually moves
+data (not just that the device appears). It's a single common flag that applies
+to every demo that supports a transaction. Results show in the **Transact**
+column of the report (and a `Transactions` summary card); a failed transaction
+marks the run as failed. Runs without `--transactions` show `N/A` there.
+
+```bat
+:: default: build + flash + enumerate only
+python run_usb_validation.py --board pic32ck_sg01_cult --demo cdc_acm --speeds hs
+
+:: opt in to the 64 KiB CDC echo transaction
+python run_usb_validation.py --board pic32ck_sg01_cult --demo cdc_acm --speeds hs --transactions
+```
+
+Which demos have a transaction is defined by `TRANSACTIONS` in `demos.py`:
+
+| Demo | Transaction | What it does |
+|------|-------------|--------------|
+| `cdc_acm` | `cdc_echo` | Opens the CDC COM port, sends **64 KiB**, reads it back, and byte-compares (the sample echoes what it receives). |
+| `mass` | `mass_file` | *(planned, Step 3)* write a 64 KiB file to the mounted drive, read it back, compare. |
+
+Notes on the CDC echo test:
+- It runs over the **enumerated CDC COM port** (VID_2FE3), *not* the debug VCOM.
+- The `cdc_acm` sample blocks until **DTR** is asserted and echoes with a small
+  ring buffer, so the tool asserts DTR and **reads while it writes** (a writer
+  thread + concurrent reader) to move 64 KiB without deadlocking.
+- Enabled only with `--transactions`; size is configurable via
+  `--transaction-size <bytes>`. Without `--transactions` the run is
+  enumeration-only.
 
 ---
 
