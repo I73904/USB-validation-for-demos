@@ -375,11 +375,16 @@ Run `python run_usb_validation.py --list-boards` to print the current set.
 
 ## Running
 
-```bat
-:: List the demo matrix (no hardware needed)
-python run_usb_validation.py --list
+**YKUSH is optional.** All of the commands below work **without** a YKUSH — you
+just connect the board's USB cable yourself (USB-C for HS, Micro-B for FS). The
+`--ykush-port-*` flags only *automate* that cabling; see *With YKUSH* further
+down. Nothing here requires the hub.
 
-:: List discovered USB-capable boards
+### Everyday runs (no YKUSH — plug the cable in manually)
+
+```bat
+:: List the demo matrix / boards (no hardware needed)
+python run_usb_validation.py --list
 python run_usb_validation.py --list-boards
 
 :: Build-only pass — proves every demo compiles for HS and FS (no board needed)
@@ -388,43 +393,56 @@ python run_usb_validation.py --build-only
 :: Full run: pick a board from the menu, then build + flash + enumerate (HS + FS)
 python run_usb_validation.py
 
-:: Skip the menu and target a specific board
+:: Target a specific board / one speed
 python run_usb_validation.py --board pic32ck_gc01_cult
-
-:: High-speed only
 python run_usb_validation.py --speeds hs
 
-:: A single demo (build + flash + enumerate, HS and FS)
+:: A single demo, or a subset
 python run_usb_validation.py --demo cdc_acm
-
-:: A single demo at one speed only
-python run_usb_validation.py --demo hid_mouse --speeds hs
-
-:: A subset of demos
-python run_usb_validation.py --demos cdc_acm,hid_mouse,mass
-
-:: Use twister to build instead of west build
-python run_usb_validation.py --flasher twister
+python run_usb_validation.py --demos cdc_acm,hid_mouse,mass --speeds hs
 
 :: Add data transactions (64 KiB): CDC echo + mass-storage file round-trip
 python run_usb_validation.py --demos cdc_acm,mass --transactions
+```
 
-:: Samples sweep AND the udc driver tests in one go (ykush toggles the cable)
+For HS+FS in one run without a hub, you swap the USB-C / Micro-B cable when the
+tool moves to the FS phase (or just run `--speeds hs` and `--speeds fs`
+separately). A speed whose cable isn't connected will build/flash but fail
+enumeration — expected.
+
+### With YKUSH (automated cable switching)
+
+Add the port mapping (USB-C→HS port, Micro-B→FS port). The tool then connects the
+right connector per speed and disconnects the other automatically. Everything
+above also accepts these flags:
+
+```bat
+:: Samples HS + FS, cable switched automatically
+python run_usb_validation.py --ykush-port-hs 2 --ykush-port-fs 3
+
+:: Samples + 64 KiB transactions, both speeds, hands-free
+python run_usb_validation.py --transactions --ykush-port-hs 2 --ykush-port-fs 3
+
+:: Samples sweep AND udc driver tests in one go (ykush toggles the cable)
 python run_usb_validation.py --udc --ykush-port-hs 2 --ykush-port-fs 3
+```
 
-:: Only the udc driver tests (skip the samples sweep)
+### UDC driver tests
+
+```bat
+:: With ykush: cable auto-disconnected for the test
+python run_usb_validation.py --udc-only --ykush-port-hs 2 --ykush-port-fs 3
+
+:: Without ykush: the tool prints a note to unplug the device cable first
 python run_usb_validation.py --udc-only --speeds hs --device-serial COM40
-
-:: Everything: samples + transactions + udc, HS and FS, with ykush
-python run_usb_validation.py --transactions --udc --ykush-port-hs 2 --ykush-port-fs 3
 ```
 
 > **Test phases.** A run has up to two phases: the **samples sweep**
 > (build → flash → enumerate, cable *connected*) and the **udc driver tests**
-> (ztest via twister, cable *disconnected*). They use opposite cable states, so
-> historically they were separate — but with ykush automating the cable, `--udc`
-> runs both in sequence. Each phase writes its own report
-> (`usb_validation_report_*` and `udc_report_*`).
+> (ztest via twister, cable *disconnected*). They use opposite cable states — with
+> a YKUSH, `--udc` runs both hands-free; without one, you unplug/replug between
+> phases. Each phase writes its own report (`usb_validation_report_*` and
+> `udc_report_*`).
 
 ### Command-line options
 
