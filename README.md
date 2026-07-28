@@ -287,7 +287,7 @@ python run_usb_validation.py --board pic32ck_sg01_cult --ykush-port-hs 2 --ykush
    Samples  (connect the tested connector):
        HS run  ->  port 2 ON ,  port 3 OFF
        FS run  ->  port 2 OFF,  port 3 ON
-   Driver tests / tests/drivers/udc  (disconnect the tested connector - planned, Step 4):
+   Driver tests / tests/drivers/udc  (--udc: disconnect the tested connector):
        udc-HS  ->  port 2 OFF          udc-FS  ->  port 3 OFF
 ```
 
@@ -307,14 +307,18 @@ The two test modes use **opposite** cable logic:
   | samples **HS** | **ON** | OFF |
   | samples **FS** | OFF | **ON** |
 
-- **Driver-test flow (`tests/drivers/udc`) — planned, Step 4.** The test must run
-  with **no host attached**, so it **disconnects** the connector for the
-  controller under test (udc-HS → HS port OFF; udc-FS → FS port OFF), runs
+- **Driver-test flow (`tests/drivers/udc`, via `--udc`).** The test must run with
+  **no host attached**, so it **disconnects** the connector for the controller
+  under test (udc-HS → HS port OFF; udc-FS → FS port OFF), runs
   `twister --device-testing` over the serial console, reads the ztest verdict,
   then restores power. *Caveat to validate on hardware:* the udc test notes the
   controller "cannot be enabled without VBUS" — a ykush port-off cuts VBUS **and**
   data, so if the PIC32CK UDC needs VBUS to enable we may need a different
-  disconnect (ykush is power-only). This is confirmed when Step 4 is built.
+  disconnect (ykush is power-only).
+
+Because ykush automates this cable toggling, the two phases **can run in a single
+invocation**: `--udc` runs the samples sweep (cables connected) and *then* the
+udc tests (cables disconnected). See *Running* below.
 
 `--ykush-serial` targets a specific hub if you have more than one.
 
@@ -401,7 +405,26 @@ python run_usb_validation.py --demos cdc_acm,hid_mouse,mass
 
 :: Use twister to build instead of west build
 python run_usb_validation.py --flasher twister
+
+:: Add data transactions (64 KiB): CDC echo + mass-storage file round-trip
+python run_usb_validation.py --demos cdc_acm,mass --transactions
+
+:: Samples sweep AND the udc driver tests in one go (ykush toggles the cable)
+python run_usb_validation.py --udc --ykush-port-hs 2 --ykush-port-fs 3
+
+:: Only the udc driver tests (skip the samples sweep)
+python run_usb_validation.py --udc-only --speeds hs --device-serial COM40
+
+:: Everything: samples + transactions + udc, HS and FS, with ykush
+python run_usb_validation.py --transactions --udc --ykush-port-hs 2 --ykush-port-fs 3
 ```
+
+> **Test phases.** A run has up to two phases: the **samples sweep**
+> (build → flash → enumerate, cable *connected*) and the **udc driver tests**
+> (ztest via twister, cable *disconnected*). They use opposite cable states, so
+> historically they were separate — but with ykush automating the cable, `--udc`
+> runs both in sequence. Each phase writes its own report
+> (`usb_validation_report_*` and `udc_report_*`).
 
 ### Command-line options
 
@@ -423,6 +446,9 @@ python run_usb_validation.py --flasher twister
 | `--ykush-serial <s>` | first hub | Target a specific YKUSH hub by serial |
 | `--transactions` | off | Also run post-enumeration data transactions (CDC/mass) for demos that support them |
 | `--transaction-size <n>` | `65536` | Bytes for data transactions when `--transactions` is set (64 KiB) |
+| `--udc` | off | **Also** run `tests/drivers/udc` ztests (cable disconnected) after the samples sweep |
+| `--udc-only` | off | Run **only** the udc driver tests (skip the samples sweep) |
+| `--device-serial <COMx>` | auto | Serial console for `--udc` twister device-testing |
 | `--enum-timeout <s>` | `30` | How long to wait for the device to enumerate |
 | `--vid <hex>` | `2FE3` | USB Vendor ID that counts as "enumerated" |
 | `--zephyr-base <path>` | auto-detect | Zephyr base or workspace root |
@@ -581,6 +607,51 @@ Notes on the mass-storage test:
   reports **"BLOCKED by host policy"** rather than blaming the firmware — CDC and
   enumeration still work because only *storage* is blocked. To actually validate
   mass storage, ask IT to allow-list the device (VID_2FE3) or run on an unmanaged PC.
+
+---
+
+## UDC driver tests (`tests/drivers/udc`)
+
+**`--udc`** adds a second phase that runs the USB **device-controller driver**
+ztests in `tests/drivers/udc`. These exercise the UDC driver directly (endpoint
+enqueue/dequeue, etc.) and **must run with no USB host attached** — the opposite
+of the samples, which need the host to enumerate. Because ykush automates the
+cable, both phases run in one command:
+
+- `--udc` → samples sweep (cable connected) **then** udc tests (cable disconnected).
+- `--udc-only` → just the udc tests (skip the samples sweep).
+
+```bat
+:: samples + udc in one run; ykush toggles the cable between phases
+python run_usb_validation.py --board pic32ck_sg01_cult --udc --ykush-port-hs 2 --ykush-port-fs 3
+
+:: udc only, HS, no ykush -> the tool tells you to unplug the cable first
+python run_usb_validation.py --board pic32ck_sg01_cult --udc-only --speeds hs --device-serial COM40
+```
+
+For each speed the udc phase:
+1. **disconnects** the tested connector (ykush port OFF; or prints a note to unplug),
+2. runs `twister --device-testing --device-serial <COM> -p <board> -s drivers.usb.udc -T tests/drivers/udc` (FS adds the usbfs snippet / dts-patch),
+3. reads twister's **ztest verdict** → PASS/FAIL,
+4. **reconnects** the cable (port ON).
+
+It writes a separate **`udc_report_<stamp>.html`/`.json`**; the samples report
+and its build/flash/enumerate flow are untouched.
+
+> **Windows MAX_PATH note:** twister nests its build tree deeply, which overflows
+> Windows' 260-char path limit under the timestamped run folder (the SDK archiver
+> isn't long-path-aware). So the udc build uses a **short scratch dir near the
+> workspace root** (`..\.udc\<speed>`, e.g. `D:\ZephyrProject\.udc\hs`), cleaned
+> each run. Reports still land in the timestamped `results\run_*` folder.
+
+> **Why two phases?** Samples need the cable *connected* (enumerate on the host);
+> udc tests need it *disconnected* (no host). They also use different tooling
+> (host PnP vs. twister ztest) and separate reports. `--udc` runs both back-to-back.
+
+> **VBUS caveat:** a ykush port-off cuts VBUS *and* data. If the PIC32CK UDC
+> needs VBUS to enable, the driver may not come up with the cable fully off — to
+> be confirmed on hardware; if so, the disconnect strategy will need adjusting
+> (ykush is power-only).
 
 ---
 

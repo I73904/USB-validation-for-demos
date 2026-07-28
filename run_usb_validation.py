@@ -1034,6 +1034,18 @@ def _twister_reason(tw_out):
     return (status + (": " + reason if reason else "")).strip()
 
 
+def _twister_status(tw_out):
+    """Return just the twister testsuite status string ('passed'/'failed'/'error'/...)."""
+    jpath = os.path.join(tw_out, "twister.json")
+    try:
+        with open(jpath, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:  # noqa: BLE001
+        return ""
+    suites = data.get("testsuites", [])
+    return suites[0].get("status", "") if suites else ""
+
+
 def flash_demo(build_dir, demo, speed, outdir, env, timeout):
     """west flash the built image. Returns (status, log_path, reason)."""
     log_path = os.path.join(outdir, "logs", "{}_{}_flash.log".format(demo["key"], speed))
@@ -1158,6 +1170,226 @@ per-run logs in <code>logs\\</code>.</footer>
 
 
 # =============================================================================
+# udc driver-test mode (tests/drivers/udc via twister --device-testing)
+# =============================================================================
+def write_udc_report(results, meta, outdir):
+    """Write a small HTML/JSON report for the udc driver-test run."""
+    stamp = meta.get("stamp", "")
+    base = "udc_report" + ("_" + stamp if stamp else "")
+    json_path = os.path.join(outdir, base + ".json")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump({"meta": meta, "results": results}, fh, indent=2)
+
+    rows = "".join(
+        "<tr><td class='c'>{sp}</td><td class='c'>{res}</td><td>{det}</td></tr>".format(
+            sp=html.escape(r["speed"].upper()), res=_badge(r["result"]),
+            det=html.escape(r.get("detail", "")))
+        for r in results)
+    passed = sum(1 for r in results if r["result"] == PASS)
+    doc = """<!doctype html><html><head><meta charset="utf-8">
+<title>PIC32CK UDC driver test</title><style>
+ body{{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
+ header{{background:#0b3d5c;color:#fff;padding:22px 28px}} header h1{{margin:0;font-size:20px}}
+ header p{{margin:6px 0 0;opacity:.85;font-size:13px}} .wrap{{max-width:900px;margin:22px auto;padding:0 18px}}
+ table{{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d0d7de;border-radius:10px;overflow:hidden}}
+ th,td{{padding:9px 12px;border-bottom:1px solid #eaeef2;font-size:14px;text-align:left}} td.c{{text-align:center}}
+ th{{background:#eef2f6;font-size:12px;text-transform:uppercase;color:#4b5563}}
+ .badge{{color:#fff;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600}}</style></head><body>
+<header><h1>PIC32CK UDC driver test (tests/drivers/udc)</h1>
+<p>Board: <b>{board}</b> | Commit: <code>{short}</code> [{branch}] | {when}</p>
+<p>Run via <code>twister --device-testing</code> with the USB device cable disconnected (ztest verdict over serial).</p></header>
+<div class="wrap"><p><b>{passed}/{total}</b> speed(s) passed.</p>
+<table><thead><tr><th>Speed</th><th>Result</th><th>Detail</th></tr></thead><tbody>{rows}</tbody></table>
+</div></body></html>""".format(
+        board=html.escape(meta["board"]), short=html.escape(meta.get("short", "") or "n/a"),
+        branch=html.escape(meta.get("branch", "") or "?"), when=html.escape(meta["generated"]),
+        passed=passed, total=len(results), rows=rows)
+    html_path = os.path.join(outdir, base + ".html")
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(doc)
+    return html_path, json_path
+
+
+def run_udc_tests(args, board, req_speeds, dts_path, env, run_stamp, commit_info):
+    """
+    Run tests/drivers/udc as a ztest via twister --device-testing, with the USB
+    device cable disconnected (ykush off) per speed. Returns process exit code.
+    """
+    tw = twister_path(args.zephyr_base)
+    if not tw:
+        log_line("ERROR: twister not found; --udc requires twister.")
+        return 2
+    serial = args.device_serial or args.console or find_console_port()
+    if not serial:
+        log_line("ERROR: --udc needs the board serial console; pass --device-serial COMx")
+        return 2
+
+    udc_root = os.path.join(args.zephyr_base, "tests", "drivers", "udc")
+    if not os.path.isdir(udc_root):
+        log_line("ERROR: {} not found in this tree.".format(udc_root))
+        return 2
+    usbfs_snippet = find_usbfs_snippet(args.zephyr_base)
+
+    log_line("Mode        : UDC driver tests (tests/drivers/udc)")
+    log_line("device-serial: {} @ {} baud".format(serial, args.console_baud))
+    log_line("USB cable   : will be DISCONNECTED per speed (no host during udc test)")
+
+    def _cable(speed, on):
+        if not getattr(args, "ykush_active", False):
+            return
+        port = args.ykush_port_hs if speed == "hs" else args.ykush_port_fs
+        if port:
+            ykush_power(port, on, args.ykush_serial or None)
+            log_line("ykush       : {} connector (port {}) -> {}".format(
+                speed.upper(), port, "ON" if on else "OFF"))
+
+    results = []
+    for speed in req_speeds:
+        if speed not in board["speeds"]:
+            results.append(dict(speed=speed, result=SKIP,
+                                detail="board has no {} USB controller".format(speed.upper())))
+            continue
+        if not getattr(args, "ykush_active", False):
+            log_line("NOTE: disconnect the {} USB device cable from the host before this "
+                     "udc test (no ykush configured).".format(speed.upper()))
+        _cable(speed, False)   # disconnect host for the test
+
+        snippet = usbfs_snippet if (speed == "fs" and usbfs_snippet) else None
+        need_patch = (speed == "fs" and not usbfs_snippet and board["fs_needs_patch"])
+        patched = apply_fs_patch(dts_path) if need_patch else False
+        try:
+            if need_patch and not patched:
+                results.append(dict(speed=speed, result=SKIP,
+                                    detail="FS device-tree patch unavailable"))
+                continue
+            # Keep twister's deep build tree OUT of the long timestamped run
+            # path (Windows MAX_PATH: the SDK archiver isn't long-path aware).
+            # Use a short scratch dir near the workspace root.
+            tw_out = os.path.join(os.path.dirname(HERE), ".udc", speed)
+            log_path = os.path.join(args.outdir, "logs", "udc_{}.log".format(speed))
+            log_line("UDC    [{}] build dir: {}".format(speed.upper(), tw_out))
+            cmd = [PYEXE, tw, "-p", board["name"], "-s", "drivers.usb.udc", "-T", udc_root,
+                   "--device-testing", "--device-serial", serial,
+                   "--device-serial-baud", str(args.console_baud),
+                   "-O", tw_out, "--clobber-output", "-v"]
+            if snippet:
+                cmd += ["--extra-args=SNIPPET={}".format(snippet)]
+            log_line("UDC    [{}] twister device-testing ...".format(speed.upper()))
+            rc, _ = run_cmd(cmd, log_path, cwd=args.zephyr_base, env=env,
+                            timeout=args.build_timeout + args.flash_timeout + 300)
+            status = _twister_status(tw_out)
+            result = PASS if status == "passed" else FAIL
+            detail = _twister_reason(tw_out) or "twister rc={}".format(rc)
+            results.append(dict(speed=speed, result=result, detail=detail,
+                                log=os.path.relpath(log_path, args.outdir)))
+            log_line("UDC    [{}] -> {}  ({})".format(speed.upper(), result, detail))
+        finally:
+            if patched:
+                restore_dts(dts_path)
+            _cable(speed, True)    # reconnect
+
+    meta = dict(board=board["name"], generated=ts(), stamp=run_stamp,
+                short=commit_info.get("short", ""), branch=commit_info.get("branch", ""))
+    hpath, jpath = write_udc_report(results, meta, args.outdir)
+
+    print("\n" + "=" * 60)
+    print("UDC DRIVER TESTS  (tests/drivers/udc)")
+    print("=" * 60)
+    for r in results:
+        print("  {:4s} {:6s} {}".format(r["speed"].upper(), r["result"], r.get("detail", "")))
+    bad = [r["speed"] for r in results if r["result"] == FAIL]
+    print("-" * 60)
+    print("Failed: {}".format(", ".join(bad) or "none"))
+    print("\nHTML report: {}".format(hpath))
+    print("JSON report: {}".format(jpath))
+    return 0
+
+
+def run_samples_phase(args, board, selected, demo_index, req_speeds, dts_path,
+                      env, run_stamp, commit_info, usbfs_snippet):
+    """The samples sweep: build -> flash -> enumerate (+ optional transactions)."""
+    board_speeds = board["speeds"]
+    if "fs" in req_speeds and "fs" in board_speeds:
+        if usbfs_snippet:
+            log_line("FS method   : snippet '{}' (-S {})".format(usbfs_snippet, usbfs_snippet))
+        elif board["fs_needs_patch"]:
+            log_line("FS method   : temporary board .dts patch")
+        else:
+            log_line("FS method   : board default (FS is native)")
+
+    results = []
+    try:
+        for speed in req_speeds:
+            if speed not in board_speeds:
+                log_line("Speed {} not supported by {}; skipping those runs.".format(
+                    speed.upper(), board["name"]))
+                for key in selected:
+                    d = demo_index[key]
+                    results.append(dict(demo=key, speed=speed, note=d["note"],
+                                        build=SKIP, flash=SKIP, enum=SKIP,
+                                        reason="board has no {} USB controller".format(speed.upper())))
+                continue
+
+            if not args.build_only:
+                ykush_set_for_speed(speed, args)
+
+            snippet = usbfs_snippet if (speed == "fs" and usbfs_snippet) else None
+            need_patch = (speed == "fs" and not usbfs_snippet and board["fs_needs_patch"])
+            fs_active = True
+            if need_patch:
+                fs_active = apply_fs_patch(dts_path)
+                if not fs_active:
+                    log_line("FS patch failed; recording FS runs as skipped.")
+
+            try:
+                if need_patch and not fs_active:
+                    for key in selected:
+                        d = demo_index[key]
+                        results.append(dict(demo=key, speed=speed, note=d["note"],
+                                            build=SKIP, flash=SKIP, enum=SKIP,
+                                            reason="FS device-tree patch unavailable"))
+                    continue
+                for key in selected:
+                    run_one_demo(demo_index[key], speed, board["name"], args, env,
+                                 results, snippet=snippet)
+            finally:
+                if need_patch and fs_active:
+                    restore_dts(dts_path)
+    finally:
+        restore_dts(dts_path)
+        ykush_restore_all(args)
+
+    meta = dict(board=board["name"], flasher=args.flasher, vid=args.vid,
+                generated=ts(), stamp=run_stamp, zephyr_base=args.zephyr_base,
+                build_only=args.build_only,
+                commit=commit_info.get("commit", ""), short=commit_info.get("short", ""),
+                branch=commit_info.get("branch", ""), commit_subject=commit_info.get("subject", ""))
+    html_path, json_path = write_reports(results, meta, args.outdir)
+
+    print("\n" + "=" * 68)
+    print("SAMPLES SUMMARY  ({} runs)".format(len(results)))
+    print("=" * 68)
+    print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s}".format(
+        "DEMO", "SPD", "BUILD", "FLASH", "ENUM", "TXN"))
+    for r in results:
+        print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s} {}".format(
+            r["demo"], r["speed"].upper(), r["build"], r["flash"], r["enum"],
+            r.get("txn", NA), r.get("reason", "")))
+    print("-" * 68)
+    if args.build_only:
+        bad = [r for r in results if r["build"] == FAIL]
+        print("Build failures: {}".format(
+            ", ".join("{}[{}]".format(r["demo"], r["speed"]) for r in bad) or "none"))
+    else:
+        failed = [r for r in results
+                  if (r["enum"] != PASS and r["build"] != SKIP) or r.get("txn") == FAIL]
+        print("Failed demos: {}".format(
+            ", ".join("{}[{}]".format(r["demo"], r["speed"]) for r in failed) or "none"))
+    print("HTML report: {}".format(html_path))
+    print("JSON report: {}".format(json_path))
+
+
+# =============================================================================
 # main
 # =============================================================================
 def parse_args():
@@ -1196,6 +1428,13 @@ def parse_args():
                          "enables ykush for FS runs (0 = disabled)")
     ap.add_argument("--ykush-serial", default="",
                     help="target a specific YKUSH hub by serial number")
+    ap.add_argument("--udc", action="store_true",
+                    help="ALSO run the tests/drivers/udc driver ztests (via twister "
+                         "--device-testing, cable disconnected) after the samples sweep")
+    ap.add_argument("--udc-only", action="store_true",
+                    help="run ONLY the udc driver tests (skip the samples sweep)")
+    ap.add_argument("--device-serial", default="",
+                    help="serial console COM port for --udc (default: --console / auto-detect)")
     ap.add_argument("--transactions", action="store_true",
                     help="also run post-enumeration data transactions (e.g. CDC 64 KiB "
                          "echo) for demos that support them; OFF by default "
@@ -1535,97 +1774,21 @@ def main():
             log_line("WARNING: --ykush-port-* set but no YKUSH hub found; cable "
                      "switching DISABLED - assuming device cables are connected manually.")
 
-    # FS selection method: prefer the official snippet (newer branches), else
-    # fall back to temporarily patching the board .dts (older branches).
+    # ---- phases: samples sweep (default) and/or udc driver tests -----------
     usbfs_snippet = find_usbfs_snippet(args.zephyr_base)
-    if "fs" in req_speeds and "fs" in board_speeds:
-        if usbfs_snippet:
-            log_line("FS method   : snippet '{}' (-S {})".format(usbfs_snippet, usbfs_snippet))
-        elif board["fs_needs_patch"]:
-            log_line("FS method   : temporary board .dts patch")
-        else:
-            log_line("FS method   : board default (FS is native)")
+    dts_path = board["dts"] or os.path.join(args.zephyr_base, BOARD_DTS_REL)
 
-    results = []
-    try:
-        for speed in req_speeds:
-            # speed not supported by this board -> record skips, keep going
-            if speed not in board_speeds:
-                log_line("Speed {} not supported by {}; skipping those runs.".format(
-                    speed.upper(), board["name"]))
-                for key in selected:
-                    d = demo_index[key]
-                    results.append(dict(demo=key, speed=speed, note=d["note"],
-                                        build=SKIP, flash=SKIP, enum=SKIP,
-                                        reason="board has no {} USB controller".format(speed.upper())))
-                continue
+    if not args.udc_only:
+        run_samples_phase(args, board, selected, demo_index, req_speeds, dts_path,
+                          env, run_stamp, commit_info, usbfs_snippet)
 
-            # connect this speed's USB device connector, disconnect the other
-            if not args.build_only:
-                ykush_set_for_speed(speed, args)
+    if args.udc or args.udc_only:
+        try:
+            run_udc_tests(args, board, req_speeds, dts_path, env, run_stamp, commit_info)
+        finally:
+            restore_dts(dts_path)      # udc FS-patch fallback safety
+            ykush_restore_all(args)    # leave connectors powered on
 
-            # Decide how FS is selected for this speed:
-            #   * snippet    -> build with -S <snippet>, no .dts change (preferred)
-            #   * .dts patch -> HS-default boards without the snippet
-            #   * neither    -> HS run, or a board where FS is already the default
-            snippet = usbfs_snippet if (speed == "fs" and usbfs_snippet) else None
-            need_patch = (speed == "fs" and not usbfs_snippet and board["fs_needs_patch"])
-            fs_active = True
-            if need_patch:
-                fs_active = apply_fs_patch(dts_path)
-                if not fs_active:
-                    log_line("FS patch failed; recording FS runs as skipped.")
-
-            try:
-                if need_patch and not fs_active:
-                    for key in selected:
-                        d = demo_index[key]
-                        results.append(dict(demo=key, speed=speed, note=d["note"],
-                                            build=SKIP, flash=SKIP, enum=SKIP,
-                                            reason="FS device-tree patch unavailable"))
-                    continue
-                for key in selected:
-                    run_one_demo(demo_index[key], speed, board["name"], args, env,
-                                 results, snippet=snippet)
-            finally:
-                if need_patch and fs_active:
-                    restore_dts(dts_path)
-    finally:
-        # belt-and-suspenders: never leave the board .dts patched
-        restore_dts(dts_path)
-        # leave both device connectors powered on for the user
-        ykush_restore_all(args)
-
-    meta = dict(board=board["name"], flasher=args.flasher, vid=args.vid,
-                generated=ts(), stamp=run_stamp, zephyr_base=args.zephyr_base,
-                build_only=args.build_only,
-                commit=commit_info.get("commit", ""), short=commit_info.get("short", ""),
-                branch=commit_info.get("branch", ""), commit_subject=commit_info.get("subject", ""))
-    html_path, json_path = write_reports(results, meta, args.outdir)
-
-    # ---- console summary ----
-    print("\n" + "=" * 68)
-    print("SUMMARY  ({} runs)".format(len(results)))
-    print("=" * 68)
-    print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s}".format(
-        "DEMO", "SPD", "BUILD", "FLASH", "ENUM", "TXN"))
-    for r in results:
-        print("{:20s} {:5s} {:6s} {:6s} {:6s} {:6s} {}".format(
-            r["demo"], r["speed"].upper(), r["build"], r["flash"], r["enum"],
-            r.get("txn", NA), r.get("reason", "")))
-    failed = [r for r in results
-              if not args.build_only
-              and ((r["enum"] != PASS and r["build"] != SKIP) or r.get("txn") == FAIL)]
-    print("-" * 68)
-    if args.build_only:
-        bad = [r for r in results if r["build"] == FAIL]
-        print("Build failures: {}".format(
-            ", ".join("{}[{}]".format(r["demo"], r["speed"]) for r in bad) or "none"))
-    else:
-        print("Failed demos: {}".format(
-            ", ".join("{}[{}]".format(r["demo"], r["speed"]) for r in failed) or "none"))
-    print("\nHTML report: {}".format(html_path))
-    print("JSON report: {}".format(json_path))
     return 0
 
 
