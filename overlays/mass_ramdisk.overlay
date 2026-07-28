@@ -1,0 +1,20 @@
+/*
+ * Larger RAM disk for the USB Mass Storage data transaction.
+ *
+ * The in-tree ramdisk.overlay is only 96 KiB (192 x 512 B), too tight for a
+ * 64 KiB file once FAT overhead is accounted for. This provides 256 KiB
+ * (512 x 512 B) so a 64 KiB round-trip file fits comfortably. The board has
+ * 512 KiB RAM, so this leaves ample room for the app/stacks.
+ *
+ * Used by run_usb_validation.py for the `mass` mass_file transaction via
+ *   -DCONFIG_APP_MSC_STORAGE_RAM=y -DEXTRA_DTC_OVERLAY_FILE=<this file>
+ */
+
+/ {
+	ramdisk0 {
+		compatible = "zephyr,ram-disk";
+		disk-name = "RAM";
+		sector-size = <512>;
+		sector-count = <512>;   /* 256 KiB */
+	};
+};

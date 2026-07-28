@@ -347,6 +347,73 @@ def cdc_echo_transaction(port, size, baud=115200):
     return ok, (line or out[:160])
 
 
+def _ps_lines(ps):
+    try:
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            text=True, encoding="utf-8", errors="replace", timeout=30)
+    except Exception:  # noqa: BLE001
+        return set()
+    return {ln.strip() for ln in out.splitlines() if ln.strip()}
+
+
+def list_drive_letters():
+    """Set of ALL mounted drive letters (any type) — the MSC disk may mount fixed or removable."""
+    return _ps_lines("(Get-CimInstance Win32_LogicalDisk).DeviceID")
+
+
+def list_usb_disks():
+    """Set of USB-backed physical disks (present even with no filesystem/letter)."""
+    return _ps_lines("Get-Disk | Where-Object BusType -eq 'USB' | "
+                     "ForEach-Object { \"$($_.Number):$($_.FriendlyName)\" }")
+
+
+def usb_device_error_code(vid):
+    """
+    If a VID_<vid> device is in an Error state, return its ConfigManagerErrorCode
+    string (e.g. 'CM_PROB_FAILED_START'), else ''. FAILED_START/DISABLED on a
+    mass-storage device typically means host USB device-control / DLP blocked it.
+    """
+    ps = ("Get-PnpDevice | Where-Object {{ $_.InstanceId -like '*VID_{}*' -and "
+          "$_.Status -eq 'Error' }} | Select-Object -First 1 -ExpandProperty "
+          "ConfigManagerErrorCode").format(vid.upper())
+    return next(iter(_ps_lines(ps)), "")
+
+
+def wait_for_new_drive(pre_drives, timeout=20):
+    """Poll for a new drive letter (any type) that wasn't present in `pre_drives`."""
+    deadline = time.time() + timeout
+    while True:
+        new = list_drive_letters() - pre_drives
+        if new:
+            return sorted(new)[0]
+        if time.time() >= deadline:
+            return None
+        time.sleep(1)
+
+
+def mass_file_transaction(drive, size):
+    """Write `size` bytes to a file on `drive`, read it back, compare. Returns (ok, detail)."""
+    path = os.path.join(drive + "\\", "usbval_test.bin")
+    payload = bytes(i & 0xFF for i in range(size))
+    try:
+        with open(path, "wb") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())        # push to the device (removable = write-through)
+        with open(path, "rb") as fh:
+            back = fh.read()
+        ok = back == payload
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return ok, "wrote {} B to {} , read {} B , match={}".format(
+            size, path, len(back), ok)
+    except OSError as exc:
+        return False, "file I/O error on {}: {}".format(drive, exc)
+
+
 # =============================================================================
 # YKUSH switchable USB hub (optional, opt-in via --ykush-port-hs/-fs)
 # =============================================================================
@@ -859,14 +926,17 @@ def twister_path(zephyr_base):
     return p if os.path.exists(p) else None
 
 
-def build_with_twister(demo, speed, board, zephyr_base, outdir, env, timeout, snippet=None):
+def build_with_twister(demo, speed, board, zephyr_base, outdir, env, timeout,
+                       snippet=None, extra_args=None, variant=""):
     """Build one sample with twister --build-only. Returns (status, build_dir, log_path, reason)."""
     tw = twister_path(zephyr_base)
-    log_path = os.path.join(outdir, "logs", "{}_{}_build.log".format(demo["key"], speed))
+    vtag = ("_" + variant) if variant else ""
+    log_path = os.path.join(outdir, "logs", "{}_{}{}_build.log".format(demo["key"], speed, vtag))
     if tw is None:
-        return build_with_west(demo, speed, board, zephyr_base, outdir, env, timeout, snippet=snippet)
+        return build_with_west(demo, speed, board, zephyr_base, outdir, env, timeout,
+                               snippet=snippet, extra_args=extra_args, variant=variant)
 
-    tw_out = os.path.join(outdir, "twister", "{}_{}".format(demo["key"], speed))
+    tw_out = os.path.join(outdir, "twister", "{}_{}{}".format(demo["key"], speed, vtag))
     sample_dir = os.path.join(zephyr_base, "samples", demo["path"])
     cmd = [
         PYEXE, tw,
@@ -880,6 +950,8 @@ def build_with_twister(demo, speed, board, zephyr_base, outdir, env, timeout, sn
     ]
     if snippet:
         cmd += ["--extra-args=SNIPPET={}".format(snippet)]
+    for a in (extra_args or []):          # translate "-DX=Y" -> "--extra-args=X=Y"
+        cmd += ["--extra-args={}".format(a[2:] if a.startswith("-D") else a)]
     rc, _ = run_cmd(cmd, log_path, cwd=zephyr_base, env=env, timeout=timeout)
 
     # Ground truth: did a flashable image get produced?
@@ -894,7 +966,8 @@ def build_with_twister(demo, speed, board, zephyr_base, outdir, env, timeout, sn
 
 
 def build_with_west(demo, speed, board, zephyr_base, outdir, env, timeout,
-                    pristine="always", cache_dir=None, snippet=None):
+                    pristine="always", cache_dir=None, snippet=None,
+                    extra_args=None, variant=""):
     """
     Build one sample with west build. Returns (status, build_dir, log_path, reason).
 
@@ -902,12 +975,17 @@ def build_with_west(demo, speed, board, zephyr_base, outdir, env, timeout,
                "always" (force clean, original behaviour), or "never".
     cache_dir: when set, build artifacts live in a stable per-(board,demo,speed)
                directory here so repeat runs are incremental. Logs stay in outdir.
+    extra_args: extra CMake -D args appended after '--' (e.g. FAT config for mass).
+    variant  : tag appended to the build-dir name so variant builds (e.g. the FAT
+               mass build) don't collide with the plain build in the cache.
     """
-    log_path = os.path.join(outdir, "logs", "{}_{}_build.log".format(demo["key"], speed))
+    tag = "_{}_{}".format(demo["key"], speed) + (("_" + variant) if variant else "")
+    log_path = os.path.join(outdir, "logs", "{}_{}{}_build.log".format(
+        demo["key"], speed, ("_" + variant) if variant else ""))
     if cache_dir:
-        build_dir = os.path.join(cache_dir, "{}_{}_{}".format(board, demo["key"], speed))
+        build_dir = os.path.join(cache_dir, board + tag)
     else:
-        build_dir = os.path.join(outdir, "build", "{}_{}".format(demo["key"], speed))
+        build_dir = os.path.join(outdir, "build", tag.lstrip("_"))
     sample_dir = os.path.join(zephyr_base, "samples", demo["path"])
     cmd = [
         WEST, "build", "-p", pristine,
@@ -917,6 +995,8 @@ def build_with_west(demo, speed, board, zephyr_base, outdir, env, timeout,
     if snippet:
         cmd += ["-S", snippet]
     cmd += [sample_dir]
+    if extra_args:
+        cmd += ["--"] + list(extra_args)
     rc, _ = run_cmd(cmd, log_path, cwd=zephyr_base, env=env, timeout=timeout)
     if rc == 0 and (os.path.exists(os.path.join(build_dir, "zephyr", "zephyr.hex"))
                     or os.path.exists(os.path.join(build_dir, "zephyr", "zephyr.elf"))):
@@ -1143,6 +1223,16 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
     log_line("================ {} ================".format(label))
     rec = dict(demo=key, speed=speed, note=demo["note"],
                build=NA, flash=NA, enum=NA, txn=NA, reason="", device="")
+
+    # the mass_file transaction needs the FAT build variant (RAM disk + fatfs)
+    txn_kind = demos.TRANSACTIONS.get(key)
+    extra_args, variant = None, ""
+    if args.transactions and txn_kind == "mass_file":
+        overlay = os.path.join(HERE, "overlays", "mass_ramdisk.overlay").replace("\\", "/")
+        extra_args = ["-DCONFIG_APP_MSC_STORAGE_RAM=y",
+                      "-DEXTRA_DTC_OVERLAY_FILE=" + overlay]
+        variant = "fat"
+
     try:
         # ---- build ----
         log_line("BUILD  {} ...".format(label))
@@ -1150,11 +1240,11 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
             bstatus, build_dir, blog, breason = build_with_west(
                 demo, speed, board, args.zephyr_base, args.outdir, env, args.build_timeout,
                 pristine=args.pristine, cache_dir=getattr(args, "build_cache_dir", None),
-                snippet=snippet)
+                snippet=snippet, extra_args=extra_args, variant=variant)
         else:
             bstatus, build_dir, blog, breason = build_with_twister(
                 demo, speed, board, args.zephyr_base, args.outdir, env, args.build_timeout,
-                snippet=snippet)
+                snippet=snippet, extra_args=extra_args, variant=variant)
         rec["build"] = bstatus
         rec["build_log"] = os.path.relpath(blog, args.outdir)
         if breason:
@@ -1170,6 +1260,9 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
 
         # ---- flash ----
         baseline = query_usb_devices()
+        _mass_txn = args.transactions and txn_kind == "mass_file"
+        pre_drives = list_drive_letters() if _mass_txn else set()
+        pre_usb_disks = list_usb_disks() if _mass_txn else set()
         log_line("FLASH  {} ...".format(label))
         fstatus, flog, freason = flash_demo(
             build_dir, demo, speed, args.outdir, env, args.flash_timeout)
@@ -1245,7 +1338,6 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                          "cable / try increasing --enum-timeout)")
 
         # ---- data transaction (verify real transfer, not just enumeration) ----
-        txn_kind = demos.TRANSACTIONS.get(demo["key"])
         if txn_kind and estatus == PASS and args.transactions:
             if txn_kind == "cdc_echo":
                 cport = find_cdc_port(args.vid)
@@ -1263,6 +1355,35 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                     log_line("TXN    {} -> {}  {}".format(label, rec["txn"], det))
                     if not ok_t and not rec.get("reason"):
                         rec["reason"] = "CDC echo transaction failed: {}".format(det)
+            elif txn_kind == "mass_file":
+                drive = wait_for_new_drive(pre_drives, 20)
+                if drive:
+                    log_line("TXN    {} mass-file {} bytes on {} ...".format(
+                        label, args.transaction_size, drive))
+                    ok_t, det = mass_file_transaction(drive, args.transaction_size)
+                    rec["txn"] = PASS if ok_t else FAIL
+                    rec["txn_detail"] = det
+                    log_line("TXN    {} -> {}  {}".format(label, rec["txn"], det))
+                    if not ok_t and not rec.get("reason"):
+                        rec["reason"] = "mass-storage file transaction failed: {}".format(det)
+                else:
+                    rec["txn"] = FAIL
+                    new_usb = list_usb_disks() - pre_usb_disks
+                    err = usb_device_error_code(args.vid)
+                    if err:
+                        why = ("USB mass storage BLOCKED by host policy (device status "
+                               "Error: {}) - USB device-control / DLP (e.g. SentinelOne, "
+                               "Microsoft Purview). Allow-list the device or use an "
+                               "unmanaged PC.".format(err))
+                    elif new_usb:
+                        why = ("MSC disk present ({}) but Windows mounted no volume "
+                               "(RAW/unformatted/offline)".format("; ".join(sorted(new_usb))[:80]))
+                    else:
+                        why = ("device enumerated as USB Mass Storage but Windows created "
+                               "no disk (no drive letter / no USB disk)")
+                    rec["txn_detail"] = why
+                    rec["reason"] = rec.get("reason") or why
+                    log_line("TXN    {} -> FAIL  {}".format(label, why))
     except Exception as exc:  # noqa: BLE001 - one demo must never abort the whole run
         import traceback
         rec["reason"] = "unexpected error: {}".format(exc)

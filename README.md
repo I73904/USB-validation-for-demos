@@ -26,7 +26,8 @@ fails to build, flash, or enumerate is listed at the end.
 | `run_usb_validation.py` | Main tool — the HS/FS build/flash/enumerate sweep |
 | `run_blinky_check.py` | Blinky sanity check (SG01 + `samples/basic/blinky`) |
 | `ykush.py` | Yepkit YKUSH switchable-USB-hub control (module + CLI) for connecting/disconnecting the USB cable |
-| `demos.py` | Auto-discovers USB device demos from the tree (`depends_on: usbd`); holds a fallback list + speed/VID constants |
+| `demos.py` | Auto-discovers USB device demos from the tree (`depends_on: usbd`); holds a fallback list + speed/VID/transaction constants |
+| `overlays\` | Devicetree overlays used by transactions (e.g. `mass_ramdisk.overlay` — larger FAT RAM disk) |
 | `README.md` | This document |
 | `results\` | Generated: timestamped run folders + `.build_cache\` |
 | `results_blinky\` | Generated: blinky-check run folders |
@@ -550,7 +551,7 @@ Which demos have a transaction is defined by `TRANSACTIONS` in `demos.py`:
 | Demo | Transaction | What it does |
 |------|-------------|--------------|
 | `cdc_acm` | `cdc_echo` | Opens the CDC COM port, sends **64 KiB**, reads it back, and byte-compares (the sample echoes what it receives). |
-| `mass` | `mass_file` | *(planned, Step 3)* write a 64 KiB file to the mounted drive, read it back, compare. |
+| `mass` | `mass_file` | Builds the FAT RAM-disk variant, waits for the mounted drive, writes a **64 KiB** file, reads it back, and byte-compares. |
 
 Notes on the CDC echo test:
 - It runs over the **enumerated CDC COM port** (VID_2FE3), *not* the debug VCOM.
@@ -560,6 +561,26 @@ Notes on the CDC echo test:
 - Enabled only with `--transactions`; size is configurable via
   `--transaction-size <bytes>`. Without `--transactions` the run is
   enumeration-only.
+
+Notes on the mass-storage test:
+- When `--transactions` is set, `mass` is built in its **FAT RAM-disk variant**
+  (`-DCONFIG_APP_MSC_STORAGE_RAM=y` + a larger `overlays\mass_ramdisk.overlay`);
+  Zephyr formats the RAM disk to FAT so Windows mounts it as a drive with **no
+  format prompt**. This variant builds into a separate `..._fat` cache dir so it
+  doesn't clash with the plain enumeration build.
+- The tool notes the removable drive letters before flashing and picks the **new**
+  one that appears after enumeration, then writes/reads/compares the file there
+  (removable drives are write-through, so the bytes really reach the device).
+- The default RAM disk is 256 KiB — plenty for 64 KiB. If you raise
+  `--transaction-size` past what fits, enlarge `overlays\mass_ramdisk.overlay`
+  (bump `sector-count`); it's capped by the board's RAM.
+- **Corporate / managed PCs often block USB mass storage** via device-control /
+  DLP (e.g. SentinelOne, Microsoft Purview, Ivanti). The device then enumerates
+  but Windows refuses to start the disk (`CM_PROB_FAILED_START`), and you may see
+  a *"your organization blocks this device"* popup. The tool detects this and
+  reports **"BLOCKED by host policy"** rather than blaming the firmware — CDC and
+  enumeration still work because only *storage* is blocked. To actually validate
+  mass storage, ask IT to allow-list the device (VID_2FE3) or run on an unmanaged PC.
 
 ---
 
@@ -589,3 +610,12 @@ Notes on the CDC echo test:
   connected. HS uses USB-C, FS uses Micro-B; both must reach this PC.
 - **Board `.dts` looks modified after a crash** (fallback FS-patch branches only)
   — run `python run_usb_validation.py --restore-dts`.
+- **`mass` transaction fails / "your organization blocks this device"** — the
+  machine's USB device-control / DLP (SentinelOne, Microsoft Purview, Ivanti…) is
+  blocking USB mass storage; the device shows `Status: Error` /
+  `CM_PROB_FAILED_START` and no disk appears. Not a firmware bug. Check with:
+  ```
+  powershell -Command "Get-PnpDevice | ? {$_.InstanceId -like '*VID_2FE3*' -and $_.Status -eq 'Error'} | Select FriendlyName,ConfigManagerErrorCode"
+  ```
+  Ask IT to allow-list the test device, or run the `mass` transaction on an
+  unmanaged PC. Enumeration and CDC transactions are unaffected.

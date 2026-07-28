@@ -45,6 +45,7 @@ CONSOLE_INIT = {
 # (mass_file is added in a later step.)
 TRANSACTIONS = {
     "cdc_acm": "cdc_echo",
+    "mass": "mass_file",
 }
 
 
