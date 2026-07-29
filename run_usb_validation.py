@@ -153,7 +153,7 @@ def find_usb_match(devices, token):
     return [(i, n) for i, n in devices.items() if t in i.upper()]
 
 
-def wait_for_enumeration(baseline, token, timeout, settle=0.5, interval=0.75):
+def wait_for_enumeration(baseline, token, timeout, settle=1.0, interval=1.0):
     """
     Poll the USB device list until a device matching `token` shows up.
     Returns (status, matched_list, new_devices) and returns as soon as the
@@ -410,7 +410,7 @@ def wait_for_new_drive(pre_drives, timeout=20):
         time.sleep(1)
 
 
-def find_mass_drive(timeout=20, settle=1):
+def find_mass_drive(timeout=20, settle=2):
     """
     Poll for the mounted drive letter of the Zephyr **RAM disk** (the real FAT
     LUN), e.g. 'E:'. Targets the device by FriendlyName so it always picks the
@@ -554,7 +554,7 @@ def ykush_set_for_speed(speed, args):
         ok, out = ykush_power(want, True, serial)
         log_line("ykush       : {} connector (port {}) -> ON ({})".format(
             speed.upper(), want, "ok" if ok else "FAILED " + out[:60]))
-        time.sleep(1)  # let the host enumerate the newly-powered connector
+        time.sleep(2)  # let the host enumerate the newly-powered connector
     else:
         log_line("ykush       : no port set for {} - manage that cable manually".format(
             speed.upper()))
@@ -1401,65 +1401,44 @@ def run_samples_phase(args, board, selected, demo_index, req_speeds, dts_path,
         else:
             log_line("FS method   : board default (FS is native)")
 
-    # Build the ordered work list; record speed-not-supported entries as SKIP.
     results = []
-    items = []
-    for speed in req_speeds:
-        if speed not in board_speeds:
-            log_line("Speed {} not supported by {}; skipping those runs.".format(
-                speed.upper(), board["name"]))
-            for key in selected:
-                d = demo_index[key]
-                results.append(dict(demo=key, speed=speed, note=d["note"],
-                                    build=SKIP, flash=SKIP, enum=SKIP,
-                                    reason="board has no {} USB controller".format(speed.upper())))
-            continue
-        snippet = usbfs_snippet if (speed == "fs" and usbfs_snippet) else None
-        need_patch = (speed == "fs" and not usbfs_snippet and board["fs_needs_patch"])
-        for key in selected:
-            items.append(dict(demo=demo_index[key], speed=speed,
-                              snippet=snippet, need_patch=need_patch))
-
-    pipelined = getattr(args, "pipeline", False) and not args.build_only and len(items) > 1
-    if pipelined:
-        log_line("Pipeline    : ON (build next demo while current one flashes/enumerates)")
-
-    def _build(it):
-        return build_one(it["demo"], it["speed"], board["name"], args, env,
-                         it["snippet"], it["need_patch"], dts_path)
-
-    cur_speed = [None]
-
-    def _hw(it, br):
-        if it["speed"] != cur_speed[0]:
-            cur_speed[0] = it["speed"]
-            if not args.build_only:
-                ykush_set_for_speed(it["speed"], args)
-        log_line("================ {} [{}] ================".format(
-            it["demo"]["key"], it["speed"].upper()))
-        run_hw(it["demo"], it["speed"], board["name"], args, env, results, br, it["snippet"])
-
     try:
-        if pipelined:
-            import concurrent.futures
-            ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        for speed in req_speeds:
+            if speed not in board_speeds:
+                log_line("Speed {} not supported by {}; skipping those runs.".format(
+                    speed.upper(), board["name"]))
+                for key in selected:
+                    d = demo_index[key]
+                    results.append(dict(demo=key, speed=speed, note=d["note"],
+                                        build=SKIP, flash=SKIP, enum=SKIP,
+                                        reason="board has no {} USB controller".format(speed.upper())))
+                continue
+
+            if not args.build_only:
+                ykush_set_for_speed(speed, args)
+
+            snippet = usbfs_snippet if (speed == "fs" and usbfs_snippet) else None
+            need_patch = (speed == "fs" and not usbfs_snippet and board["fs_needs_patch"])
+            fs_active = True
+            if need_patch:
+                fs_active = apply_fs_patch(dts_path)
+                if not fs_active:
+                    log_line("FS patch failed; recording FS runs as skipped.")
+
             try:
-                futures = {0: ex.submit(_build, items[0])}
-                for i, it in enumerate(items):
-                    br = futures[i].result()                  # wait for this demo's build
-                    if i + 1 < len(items):                    # start the next build now...
-                        futures[i + 1] = ex.submit(_build, items[i + 1])
-                    _hw(it, br)                               # ...while we flash/enumerate this one
+                if need_patch and not fs_active:
+                    for key in selected:
+                        d = demo_index[key]
+                        results.append(dict(demo=key, speed=speed, note=d["note"],
+                                            build=SKIP, flash=SKIP, enum=SKIP,
+                                            reason="FS device-tree patch unavailable"))
+                    continue
+                for key in selected:
+                    run_one_demo(demo_index[key], speed, board["name"], args, env,
+                                 results, snippet=snippet)
             finally:
-                ex.shutdown(wait=True)
-        else:
-            for it in items:
-                if it["speed"] != cur_speed[0]:
-                    cur_speed[0] = it["speed"]
-                    if not args.build_only:
-                        ykush_set_for_speed(it["speed"], args)
-                run_one_demo(it["demo"], it["speed"], board["name"], args, env, results,
-                             snippet=it["snippet"], need_patch=it["need_patch"], dts_path=dts_path)
+                if need_patch and fs_active:
+                    restore_dts(dts_path)
     finally:
         restore_dts(dts_path)
         ykush_restore_all(args)
@@ -1520,9 +1499,6 @@ def parse_args():
                     help="dir for cached build artifacts (default: <outdir>\\.build_cache)")
     ap.add_argument("--no-cache", action="store_true",
                     help="disable the build cache (build inside the timestamped run dir)")
-    ap.add_argument("--pipeline", action="store_true",
-                    help="overlap builds with flashing/enumeration: build the next demo "
-                         "while the current one flashes/enumerates (faster; same results)")
     ap.add_argument("--console", default="",
                     help="serial console COM port for demos that need shell init "
                          "(e.g. shell); auto-detected if omitted")
@@ -1553,9 +1529,7 @@ def parse_args():
     ap.add_argument("--txn-dump", action="store_true",
                     help="also save the full sent/received transaction buffers as "
                          ".bin files under the run's logs/ dir")
-    ap.add_argument("--enum-timeout", type=int, default=15,
-                    help="max seconds to wait for enumeration (default 15; passing "
-                         "devices return in ~5s, so this only bounds the FAIL wait)")
+    ap.add_argument("--enum-timeout", type=int, default=30)
     ap.add_argument("--build-timeout", type=int, default=1800)
     ap.add_argument("--flash-timeout", type=int, default=600)
     ap.add_argument("--outdir", default=os.path.join(HERE, "results"))
@@ -1568,14 +1542,20 @@ def parse_args():
     return ap.parse_args()
 
 
-def build_one(demo, speed, board, args, env, snippet=None, need_patch=False, dts_path=None):
-    """
-    Build a single (demo, speed). Applies the FS .dts patch when needed (safe:
-    the caller runs builds one-at-a-time, and the hardware step never touches the
-    .dts). Never raises. Returns {status, build_dir, log, reason}.
-    """
+def run_one_demo(demo, speed, board, args, env, results, snippet=None):
+    """Build+flash+enumerate a single demo. Never raises: records the outcome and returns."""
     key = demo["key"]
     label = "{} [{}]".format(key, speed.upper())
+    log_line("================ {} ================".format(label))
+    rec = dict(demo=key, speed=speed, note=demo["note"],
+               build=NA, flash=NA, enum=NA, txn=NA, reason="", device="")
+
+    # how this demo is identified on the host USB list (mass uses VID_04D8&PID_0008)
+    match_token = demos.usb_match_token(key, args.vid)
+    match_vid = (match_token.split("&")[0][4:]
+                 if match_token.upper().startswith("VID_") else args.vid)
+
+    # the mass_file transaction needs the FAT build variant (RAM disk + fatfs)
     txn_kind = demos.TRANSACTIONS.get(key)
     extra_args, variant = None, ""
     if args.transactions and txn_kind == "mass_file":
@@ -1584,15 +1564,9 @@ def build_one(demo, speed, board, args, env, snippet=None, need_patch=False, dts
                       "-DEXTRA_DTC_OVERLAY_FILE=" + overlay]
         variant = "fat"
 
-    log_line("BUILD  {} ...".format(label))
-    patched = False
-    bstatus, build_dir, blog, breason = FAIL, None, None, ""
     try:
-        if need_patch:
-            patched = apply_fs_patch(dts_path)
-            if not patched:
-                return dict(status=SKIP, build_dir=None, log=None,
-                            reason="FS device-tree patch unavailable")
+        # ---- build ----
+        log_line("BUILD  {} ...".format(label))
         if args.flasher == "west":
             bstatus, build_dir, blog, breason = build_with_west(
                 demo, speed, board, args.zephyr_base, args.outdir, env, args.build_timeout,
@@ -1602,38 +1576,18 @@ def build_one(demo, speed, board, args, env, snippet=None, need_patch=False, dts
             bstatus, build_dir, blog, breason = build_with_twister(
                 demo, speed, board, args.zephyr_base, args.outdir, env, args.build_timeout,
                 snippet=snippet, extra_args=extra_args, variant=variant)
-    except Exception as exc:  # noqa: BLE001 - never let a build abort the sweep
-        return dict(status=FAIL, build_dir=None, log=blog, reason="build error: {}".format(exc))
-    finally:
-        if patched:
-            restore_dts(dts_path)
-    log_line("BUILD  {} -> {} {}".format(label, bstatus, breason))
-    return dict(status=bstatus, build_dir=build_dir, log=blog, reason=breason)
+        rec["build"] = bstatus
+        rec["build_log"] = os.path.relpath(blog, args.outdir)
+        if breason:
+            rec["reason"] = breason
+        log_line("BUILD  {} -> {} {}".format(label, bstatus, breason))
 
-
-def run_hw(demo, speed, board, args, env, results, br, snippet=None):
-    """Flash + enumerate + optional data transaction, given a prior build result
-    `br`. Never raises: appends the outcome record to `results`."""
-    key = demo["key"]
-    label = "{} [{}]".format(key, speed.upper())
-    match_token = demos.usb_match_token(key, args.vid)
-    match_vid = (match_token.split("&")[0][4:]
-                 if match_token.upper().startswith("VID_") else args.vid)
-    txn_kind = demos.TRANSACTIONS.get(key)
-    rec = dict(demo=key, speed=speed, note=demo["note"],
-               build=br["status"], flash=NA, enum=NA, txn=NA,
-               reason=br.get("reason", ""), device="")
-    if br.get("log"):
-        rec["build_log"] = os.path.relpath(br["log"], args.outdir)
-
-    try:
-        if br["status"] != PASS or args.build_only:
-            if br["status"] == SKIP:
+        if bstatus != PASS or args.build_only:
+            if bstatus == SKIP:
                 rec["flash"] = rec["enum"] = SKIP
             else:
                 rec["flash"] = rec["enum"] = NA
             return
-        build_dir = br["build_dir"]
 
         # ---- flash ----
         baseline = query_usb_devices()
@@ -1781,14 +1735,6 @@ def run_hw(demo, speed, board, args, env, results, br, snippet=None):
         results.append(rec)
 
 
-def run_one_demo(demo, speed, board, args, env, results, snippet=None,
-                 need_patch=False, dts_path=None):
-    """Sequential build+flash+enumerate for one demo (default, non-pipelined)."""
-    log_line("================ {} [{}] ================".format(demo["key"], speed.upper()))
-    br = build_one(demo, speed, board, args, env, snippet, need_patch, dts_path)
-    run_hw(demo, speed, board, args, env, results, br, snippet)
-
-
 def main():
     args = parse_args()
 
@@ -1900,13 +1846,8 @@ def main():
     log_line("Output dir  : {}".format(args.outdir))
     log_line("Build cache : {}".format(args.build_cache_dir or "(disabled)"))
     log_line("Pristine    : {}".format(args.pristine))
-    if ccache:
-        log_line("ccache      : {} (compile cache active - shared across demos)".format(ccache))
-    else:
-        log_line("ccache      : NOT FOUND")
-        log_line("  TIP: every demo recompiles the same Zephyr core; installing ccache")
-        log_line("       cuts a full sweep dramatically -> 'choco install ccache' (admin),")
-        log_line("       then re-open the shell. Zephyr uses it automatically.")
+    log_line("ccache      : {}".format(
+        ccache or "(not found - 'choco install ccache' speeds the first build a lot)"))
     log_line("west        : {}".format(WEST))
     if not args.build_only:
         log_line("ipecmd      : {}".format(IPECMD or "(not found - flashing will fail)"))
