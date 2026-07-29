@@ -222,18 +222,29 @@ finally a prompt. Override with `--west <path\to\west.exe>` or `--venv <dir>`.
 
 ---
 
-## Build speed
+## Run time & speed
 
+A full 14-demo × HS/FS sweep is dominated by **compilation** (~24 fresh builds).
+Rough breakdown: builds ~55–60 min, flashing ~15–20 min, enumeration only a few
+seconds per passing demo (it returns as soon as the device appears). Levers:
+
+- **ccache — the biggest win, install it.** Every demo recompiles the *same*
+  Zephyr core, so a shared compile cache turns ~2.5-min builds into ~30–60 s
+  after the first. `choco install ccache` (admin), reopen the shell — Zephyr uses
+  it automatically and the tool prints whether it's active. Expect roughly a
+  2–4× cut on a fresh sweep.
 - **Incremental build cache (default).** Builds use `west build -p auto` with a
-  stable per-(board, demo, speed) build directory under
-  `<outdir>\.build_cache`. West still does a clean build whenever it detects one
-  is needed, so results are identical — but unchanged re-runs are ~40× faster
-  (seconds instead of minutes). Control with `--pristine {auto,always,never}`,
-  relocate with `--build-cache <dir>`, or disable with `--no-cache`.
-- **ccache (recommended).** Zephyr uses `ccache` automatically if it is on PATH.
-  Because every demo recompiles the same Zephyr core, ccache dramatically cuts
-  the *first* full run too. Install once: `choco install ccache`. The scripts
-  report whether ccache was found.
+  stable per-(board, demo, speed) dir under `<outdir>\.build_cache`, so a repeat
+  sweep on the same branch is already near-instant (only changed demos rebuild).
+  Results are identical. `--pristine {auto,always,never}`, `--build-cache <dir>`,
+  `--no-cache`.
+- **Enumeration wait.** Passing demos return in ~5 s; the timeout only bounds the
+  *failure* wait. Default is **15 s** (`--enum-timeout`). If you run `--speeds
+  hs,fs` with only one cable, the other speed fails enumeration and waits the
+  full timeout per demo — use YKUSH (auto-switches the cable) or run one speed at
+  a time to avoid that.
+- **Flashing** (~50 s/demo) is hardware-bound (erase+program+verify) and left
+  as-is.
 
 ---
 

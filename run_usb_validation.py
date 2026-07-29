@@ -153,7 +153,7 @@ def find_usb_match(devices, token):
     return [(i, n) for i, n in devices.items() if t in i.upper()]
 
 
-def wait_for_enumeration(baseline, token, timeout, settle=1.0, interval=1.0):
+def wait_for_enumeration(baseline, token, timeout, settle=0.5, interval=0.75):
     """
     Poll the USB device list until a device matching `token` shows up.
     Returns (status, matched_list, new_devices) and returns as soon as the
@@ -410,7 +410,7 @@ def wait_for_new_drive(pre_drives, timeout=20):
         time.sleep(1)
 
 
-def find_mass_drive(timeout=20, settle=2):
+def find_mass_drive(timeout=20, settle=1):
     """
     Poll for the mounted drive letter of the Zephyr **RAM disk** (the real FAT
     LUN), e.g. 'E:'. Targets the device by FriendlyName so it always picks the
@@ -554,7 +554,7 @@ def ykush_set_for_speed(speed, args):
         ok, out = ykush_power(want, True, serial)
         log_line("ykush       : {} connector (port {}) -> ON ({})".format(
             speed.upper(), want, "ok" if ok else "FAILED " + out[:60]))
-        time.sleep(2)  # let the host enumerate the newly-powered connector
+        time.sleep(1)  # let the host enumerate the newly-powered connector
     else:
         log_line("ykush       : no port set for {} - manage that cable manually".format(
             speed.upper()))
@@ -1529,7 +1529,9 @@ def parse_args():
     ap.add_argument("--txn-dump", action="store_true",
                     help="also save the full sent/received transaction buffers as "
                          ".bin files under the run's logs/ dir")
-    ap.add_argument("--enum-timeout", type=int, default=30)
+    ap.add_argument("--enum-timeout", type=int, default=15,
+                    help="max seconds to wait for enumeration (default 15; passing "
+                         "devices return in ~5s, so this only bounds the FAIL wait)")
     ap.add_argument("--build-timeout", type=int, default=1800)
     ap.add_argument("--flash-timeout", type=int, default=600)
     ap.add_argument("--outdir", default=os.path.join(HERE, "results"))
@@ -1846,8 +1848,13 @@ def main():
     log_line("Output dir  : {}".format(args.outdir))
     log_line("Build cache : {}".format(args.build_cache_dir or "(disabled)"))
     log_line("Pristine    : {}".format(args.pristine))
-    log_line("ccache      : {}".format(
-        ccache or "(not found - 'choco install ccache' speeds the first build a lot)"))
+    if ccache:
+        log_line("ccache      : {} (compile cache active - shared across demos)".format(ccache))
+    else:
+        log_line("ccache      : NOT FOUND")
+        log_line("  TIP: every demo recompiles the same Zephyr core; installing ccache")
+        log_line("       cuts a full sweep dramatically -> 'choco install ccache' (admin),")
+        log_line("       then re-open the shell. Zephyr uses it automatically.")
     log_line("west        : {}".format(WEST))
     if not args.build_only:
         log_line("ipecmd      : {}".format(IPECMD or "(not found - flashing will fail)"))
