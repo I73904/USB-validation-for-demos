@@ -292,9 +292,10 @@ def find_cdc_port(vid):
 # then compare. Concurrency avoids the deadlock the 1 KB echo ring buffer would
 # otherwise cause on a write-all-then-read-all.
 _CDC_ECHO_SNIPPET = (
-    "import sys, time, threading\n"
+    "import sys, time, threading, zlib\n"
     "import serial\n"
     "port = sys.argv[1]; baud = int(sys.argv[2]); size = int(sys.argv[3])\n"
+    "dump = sys.argv[4] if len(sys.argv) > 4 else ''\n"
     "payload = bytes(i & 0xFF for i in range(size))\n"
     "ser = serial.Serial(port, baud, timeout=1, write_timeout=30)\n"
     "try:\n"
@@ -321,31 +322,47 @@ _CDC_ECHO_SNIPPET = (
     "        elif time.time() - last > 5.0:\n"
     "            break\n"
     "    t.join(timeout=5)\n"
-    "    ok = bytes(received) == payload\n"
+    "    rb = bytes(received)\n"
+    "    ok = rb == payload\n"
     "    mism = -1\n"
     "    if not ok:\n"
-    "        for j in range(min(len(received), size)):\n"
-    "            if received[j] != payload[j]:\n"
+    "        for j in range(min(len(rb), size)):\n"
+    "            if rb[j] != payload[j]:\n"
     "                mism = j; break\n"
-    "    print('RESULT %s sent=%d recv=%d mismatch_at=%d' %\n"
-    "          ('PASS' if ok else 'FAIL', size, len(received), mism))\n"
+    "    scrc = zlib.crc32(payload) & 0xffffffff\n"
+    "    rcrc = zlib.crc32(rb) & 0xffffffff\n"
+    "    if dump:\n"
+    "        open(dump + '.sent.bin', 'wb').write(payload)\n"
+    "        open(dump + '.recv.bin', 'wb').write(rb)\n"
+    "    print('RESULT %s sent=%d recv=%d sent_crc32=%08X recv_crc32=%08X mismatch_at=%d' %\n"
+    "          ('PASS' if ok else 'FAIL', size, len(rb), scrc, rcrc, mism))\n"
+    "    print('SENT_HEAD ' + payload[:32].hex())\n"
+    "    print('RECV_HEAD ' + rb[:32].hex())\n"
+    "    print('SENT_TAIL ' + payload[-32:].hex())\n"
+    "    print('RECV_TAIL ' + rb[-32:].hex())\n"
     "finally:\n"
     "    ser.close()\n"
 )
 
 
-def cdc_echo_transaction(port, size, baud=115200):
-    """Send `size` bytes to the CDC echo device and read them back. Returns (ok, detail)."""
+def cdc_echo_transaction(port, size, baud=115200, dump_path=None):
+    """
+    Send `size` bytes to the CDC echo device and read them back.
+    Returns (ok, detail, log_text) — log_text is the full snippet output for the
+    per-transaction log (CRC32s, head/tail hex).
+    """
     cmd = [PYEXE, "-c", _CDC_ECHO_SNIPPET, port, str(baud), str(size)]
+    if dump_path:
+        cmd.append(dump_path)
     try:
         res = subprocess.run(cmd, capture_output=True, text=True,
                              encoding="utf-8", errors="replace", timeout=120)
     except Exception as exc:  # noqa: BLE001
-        return False, str(exc)
+        return False, str(exc), str(exc)
     out = ((res.stdout or "") + (res.stderr or "")).strip()
     line = next((l for l in out.splitlines() if l.startswith("RESULT")), "")
     ok = res.returncode == 0 and line.startswith("RESULT PASS")
-    return ok, (line or out[:160])
+    return ok, (line or out[:160]), out
 
 
 def _ps_lines(ps):
@@ -415,8 +432,13 @@ def find_mass_drive(timeout=20, settle=2):
         time.sleep(1)
 
 
-def mass_file_transaction(drive, size):
-    """Write `size` bytes to a file on `drive`, read it back, compare. Returns (ok, detail)."""
+def mass_file_transaction(drive, size, dump_path=None):
+    """
+    Write `size` bytes to a file on `drive`, read it back, compare.
+    Returns (ok, detail, log_text). If dump_path is set, also save the sent and
+    read-back buffers as <dump_path>.sent.bin / .recv.bin.
+    """
+    import zlib
     path = os.path.join(drive + "\\", "usbval_test.bin")
     payload = bytes(i & 0xFF for i in range(size))
     try:
@@ -427,14 +449,53 @@ def mass_file_transaction(drive, size):
         with open(path, "rb") as fh:
             back = fh.read()
         ok = back == payload
+        mism = -1
+        if not ok:
+            for j in range(min(len(back), size)):
+                if back[j] != payload[j]:
+                    mism = j
+                    break
+        scrc = zlib.crc32(payload) & 0xffffffff
+        rcrc = zlib.crc32(back) & 0xffffffff
+        if dump_path:
+            with open(dump_path + ".sent.bin", "wb") as f:
+                f.write(payload)
+            with open(dump_path + ".recv.bin", "wb") as f:
+                f.write(back)
         try:
             os.remove(path)
         except OSError:
             pass
-        return ok, "wrote {} B to {} , read {} B , match={}".format(
-            size, path, len(back), ok)
+        detail = "wrote {} B to {} , read {} B , match={}".format(size, path, len(back), ok)
+        log_text = "\n".join([
+            "RESULT {} sent={} recv={} sent_crc32={:08X} recv_crc32={:08X} mismatch_at={}".format(
+                "PASS" if ok else "FAIL", size, len(back), scrc, rcrc, mism),
+            "SENT_HEAD " + payload[:32].hex(),
+            "RECV_HEAD " + back[:32].hex(),
+            "SENT_TAIL " + payload[-32:].hex(),
+            "RECV_TAIL " + back[-32:].hex(),
+        ])
+        return ok, detail, log_text
     except OSError as exc:
-        return False, "file I/O error on {}: {}".format(drive, exc)
+        msg = "file I/O error on {}: {}".format(drive, exc)
+        return False, msg, msg
+
+
+def write_txn_log(path, kind, size, target, body):
+    """Write a per-transaction log: what pattern was sent, CRC32s, head/tail hex."""
+    header = (
+        "USB validation - data transaction log\n"
+        "kind    : {}\n"
+        "size    : {} bytes\n"
+        "target  : {}\n"
+        "payload : deterministic ramp, byte[i] = i & 0xFF  (00 01 02 .. FF 00 01 ..)\n"
+        "{}\n"
+    ).format(kind, size, target, "-" * 60)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(header + (body or "") + "\n")
+    except OSError:
+        pass
 
 
 # =============================================================================
@@ -1465,6 +1526,9 @@ def parse_args():
     ap.add_argument("--transaction-size", type=int, default=65536,
                     help="bytes for data transactions when --transactions is set "
                          "(default 65536 = 64 KiB)")
+    ap.add_argument("--txn-dump", action="store_true",
+                    help="also save the full sent/received transaction buffers as "
+                         ".bin files under the run's logs/ dir")
     ap.add_argument("--enum-timeout", type=int, default=30)
     ap.add_argument("--build-timeout", type=int, default=1800)
     ap.add_argument("--flash-timeout", type=int, default=600)
@@ -1606,6 +1670,9 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
 
         # ---- data transaction (verify real transfer, not just enumeration) ----
         if txn_kind and estatus == PASS and args.transactions:
+            txn_log = os.path.join(args.outdir, "logs", "{}_{}_txn.log".format(key, speed))
+            dump_base = (os.path.join(args.outdir, "logs", "{}_{}_txn".format(key, speed))
+                         if args.txn_dump else None)
             if txn_kind == "cdc_echo":
                 cport = find_cdc_port(match_vid)
                 if not cport:
@@ -1616,9 +1683,12 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                 else:
                     log_line("TXN    {} cdc-echo {} bytes on {} ...".format(
                         label, args.transaction_size, cport))
-                    ok_t, det = cdc_echo_transaction(cport, args.transaction_size, args.console_baud)
+                    ok_t, det, ltext = cdc_echo_transaction(
+                        cport, args.transaction_size, args.console_baud, dump_base)
+                    write_txn_log(txn_log, "cdc_echo", args.transaction_size, cport, ltext)
                     rec["txn"] = PASS if ok_t else FAIL
                     rec["txn_detail"] = det
+                    rec["txn_log"] = os.path.relpath(txn_log, args.outdir)
                     log_line("TXN    {} -> {}  {}".format(label, rec["txn"], det))
                     if not ok_t and not rec.get("reason"):
                         rec["reason"] = "CDC echo transaction failed: {}".format(det)
@@ -1627,9 +1697,12 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                 if drive:
                     log_line("TXN    {} mass-file {} bytes on {} ...".format(
                         label, args.transaction_size, drive))
-                    ok_t, det = mass_file_transaction(drive, args.transaction_size)
+                    ok_t, det, ltext = mass_file_transaction(
+                        drive, args.transaction_size, dump_base)
+                    write_txn_log(txn_log, "mass_file", args.transaction_size, drive, ltext)
                     rec["txn"] = PASS if ok_t else FAIL
                     rec["txn_detail"] = det
+                    rec["txn_log"] = os.path.relpath(txn_log, args.outdir)
                     log_line("TXN    {} -> {}  {}".format(label, rec["txn"], det))
                     if not ok_t and not rec.get("reason"):
                         rec["reason"] = "mass-storage file transaction failed: {}".format(det)

@@ -464,6 +464,7 @@ python run_usb_validation.py --udc-only --speeds hs --device-serial COM40
 | `--ykush-serial <s>` | first hub | Target a specific YKUSH hub by serial |
 | `--transactions` | off | Also run post-enumeration data transactions (CDC/mass) for demos that support them |
 | `--transaction-size <n>` | `65536` | Bytes for data transactions when `--transactions` is set (64 KiB) |
+| `--txn-dump` | off | Also save the full sent/received transaction buffers as `.bin` files |
 | `--udc` | off | **Also** run `tests/drivers/udc` ztests (cable disconnected) after the samples sweep |
 | `--udc-only` | off | Run **only** the udc driver tests (skip the samples sweep) |
 | `--device-serial <COMx>` | auto | Serial console for `--udc` twister device-testing |
@@ -589,6 +590,22 @@ python run_usb_validation.py --board pic32ck_sg01_cult --demo cdc_acm --speeds h
 :: opt in to the 64 KiB CDC echo transaction
 python run_usb_validation.py --board pic32ck_sg01_cult --demo cdc_acm --speeds hs --transactions
 ```
+
+**What's transmitted & where to see it.** Both transactions send a **deterministic
+64 KiB ramp** — `byte[i] = i & 0xFF` (`00 01 02 … FF 00 01 …`) — chosen so it's
+reproducible and position-sensitive (any dropped/duplicated byte fails the
+compare). Each transaction writes a log at
+**`logs\<demo>_<speed>_txn.log`** recording the pattern, size, **CRC32 of sent vs
+received**, and the first/last 32 bytes of each in hex, e.g.:
+
+```
+RESULT PASS sent=65536 recv=65536 sent_crc32=B11DE6A1 recv_crc32=B11DE6A1 mismatch_at=-1
+SENT_HEAD 000102030405...1e1f
+RECV_HEAD 000102030405...1e1f
+```
+
+Add **`--txn-dump`** to also save the full buffers as
+`logs\<demo>_<speed>_txn.sent.bin` / `.recv.bin` for byte-level diffing.
 
 Which demos have a transaction is defined by `TRANSACTIONS` in `demos.py`:
 
