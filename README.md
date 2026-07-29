@@ -612,9 +612,13 @@ Notes on the mass-storage test:
   Zephyr formats the RAM disk to FAT so Windows mounts it as a drive with **no
   format prompt**. This variant builds into a separate `..._fat` cache dir so it
   doesn't clash with the plain enumeration build.
-- The tool notes the removable drive letters before flashing and picks the **new**
-  one that appears after enumeration, then writes/reads/compares the file there
-  (removable drives are write-through, so the bytes really reach the device).
+- The tool finds the drive by the **Zephyr RAM disk device** (FriendlyName
+  "Zephyr RAMDisk") and uses that volume's letter, then writes/reads/compares the
+  file (removable drives are write-through, so the bytes really reach the device).
+  Device-based lookup matters because the sample exposes **3 LUNs**
+  (`CONFIG_USBD_MSC_LUNS_PER_INSTANCE=3`) — only the RAM LUN is a real FAT disk;
+  the others show up as empty drive letters. Matching by device also survives the
+  drive letter being reused across the HS→FS runs.
 - The default RAM disk is 256 KiB — plenty for 64 KiB. If you raise
   `--transaction-size` past what fits, enlarge `overlays\mass_ramdisk.overlay`
   (bump `sector-count`); it's capped by the board's RAM.

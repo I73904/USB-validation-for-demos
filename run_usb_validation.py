@@ -393,6 +393,28 @@ def wait_for_new_drive(pre_drives, timeout=20):
         time.sleep(1)
 
 
+def find_mass_drive(timeout=20, settle=2):
+    """
+    Poll for the mounted drive letter of the Zephyr **RAM disk** (the real FAT
+    LUN), e.g. 'E:'. Targets the device by FriendlyName so it always picks the
+    RAM disk with media — not an empty extra LUN, and immune to letter reuse
+    across HS/FS runs.
+    """
+    ps = ("Get-Disk | Where-Object { $_.FriendlyName -match 'Zephyr' -and "
+          "$_.FriendlyName -match 'RAM' } | Get-Partition -ErrorAction SilentlyContinue | "
+          "Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter } | "
+          "Select-Object -First 1 -ExpandProperty DriveLetter")
+    time.sleep(settle)
+    deadline = time.time() + timeout
+    while True:
+        letters = _ps_lines(ps)
+        if letters:
+            return next(iter(letters)).strip()[:1] + ":"
+        if time.time() >= deadline:
+            return None
+        time.sleep(1)
+
+
 def mass_file_transaction(drive, size):
     """Write `size` bytes to a file on `drive`, read it back, compare. Returns (ok, detail)."""
     path = os.path.join(drive + "\\", "usbval_test.bin")
@@ -1506,7 +1528,6 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
         # ---- flash ----
         baseline = query_usb_devices()
         _mass_txn = args.transactions and txn_kind == "mass_file"
-        pre_drives = list_drive_letters() if _mass_txn else set()
         pre_usb_disks = list_usb_disks() if _mass_txn else set()
         log_line("FLASH  {} ...".format(label))
         fstatus, flog, freason = flash_demo(
@@ -1602,7 +1623,7 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                     if not ok_t and not rec.get("reason"):
                         rec["reason"] = "CDC echo transaction failed: {}".format(det)
             elif txn_kind == "mass_file":
-                drive = wait_for_new_drive(pre_drives, 20)
+                drive = find_mass_drive(20)   # the RAM FAT LUN, by device name
                 if drive:
                     log_line("TXN    {} mass-file {} bytes on {} ...".format(
                         label, args.transaction_size, drive))
