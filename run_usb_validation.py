@@ -146,15 +146,16 @@ def query_usb_devices():
     return result
 
 
-def find_vid(devices, vid):
-    """Return list of (id, name) whose PNPDeviceID contains VID_<vid>."""
-    token = "VID_{}".format(vid.upper())
-    return [(i, n) for i, n in devices.items() if token in i.upper()]
+def find_usb_match(devices, token):
+    """Return list of (id, name) whose PNPDeviceID contains `token` (e.g. 'VID_2FE3'
+    or the more precise 'VID_04D8&PID_0008'), case-insensitive."""
+    t = token.upper()
+    return [(i, n) for i, n in devices.items() if t in i.upper()]
 
 
-def wait_for_enumeration(baseline, vid, timeout, settle=1.0, interval=1.0):
+def wait_for_enumeration(baseline, token, timeout, settle=1.0, interval=1.0):
     """
-    Poll the USB device list until a Zephyr device (VID) shows up.
+    Poll the USB device list until a device matching `token` shows up.
     Returns (status, matched_list, new_devices) and returns as soon as the
     device appears (so a passing enumeration is fast).
     """
@@ -163,7 +164,7 @@ def wait_for_enumeration(baseline, vid, timeout, settle=1.0, interval=1.0):
     last = {}
     while True:
         last = query_usb_devices()
-        matched = find_vid(last, vid)
+        matched = find_usb_match(last, token)
         if matched:
             new = {i: n for i, n in last.items() if i not in baseline}
             return PASS, matched, new
@@ -1463,6 +1464,11 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
     rec = dict(demo=key, speed=speed, note=demo["note"],
                build=NA, flash=NA, enum=NA, txn=NA, reason="", device="")
 
+    # how this demo is identified on the host USB list (mass uses VID_04D8&PID_0008)
+    match_token = demos.usb_match_token(key, args.vid)
+    match_vid = (match_token.split("&")[0][4:]
+                 if match_token.upper().startswith("VID_") else args.vid)
+
     # the mass_file transaction needs the FAT build variant (RAM disk + fatfs)
     txn_kind = demos.TRANSACTIONS.get(key)
     extra_args, variant = None, ""
@@ -1543,8 +1549,9 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                     "/".join(init_cmds)))
 
         # ---- enumerate ----
-        log_line("ENUM   {} (waiting up to {}s) ...".format(label, args.enum_timeout))
-        estatus, matched, new = wait_for_enumeration(baseline, args.vid, args.enum_timeout)
+        log_line("ENUM   {} (waiting up to {}s, match {}) ...".format(
+            label, args.enum_timeout, match_token))
+        estatus, matched, new = wait_for_enumeration(baseline, match_token, args.enum_timeout)
         rec["enum"] = estatus
         if matched:
             rec["device"] = "; ".join(
@@ -1560,9 +1567,9 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                 rec["reason"] = ("device attached but Windows could not read its "
                                  "descriptors (likely USB driver/enumeration bug)")
             else:
-                rec["device"] = "new (no VID_{}): ".format(args.vid) + "; ".join(
+                rec["device"] = "new (no {}): ".format(match_token) + "; ".join(
                     list(new.values())[:3])
-                rec["reason"] = "new USB device(s) appeared but none with VID_{}".format(args.vid)
+                rec["reason"] = "new USB device(s) appeared but none matching {}".format(match_token)
         else:
             rec["reason"] = ("no USB device appeared within {}s - is the board's USB "
                              "*device* port (not the debugger) connected?".format(args.enum_timeout))
@@ -1579,11 +1586,11 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
         # ---- data transaction (verify real transfer, not just enumeration) ----
         if txn_kind and estatus == PASS and args.transactions:
             if txn_kind == "cdc_echo":
-                cport = find_cdc_port(args.vid)
+                cport = find_cdc_port(match_vid)
                 if not cport:
                     rec["txn"] = FAIL
                     rec["reason"] = rec.get("reason") or \
-                        "no CDC COM port (VID_{}) found for transaction".format(args.vid)
+                        "no CDC COM port (VID_{}) found for transaction".format(match_vid)
                     log_line("TXN    {} -> FAIL ({})".format(label, rec["reason"]))
                 else:
                     log_line("TXN    {} cdc-echo {} bytes on {} ...".format(
@@ -1608,7 +1615,7 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                 else:
                     rec["txn"] = FAIL
                     new_usb = list_usb_disks() - pre_usb_disks
-                    err = usb_device_error_code(args.vid)
+                    err = usb_device_error_code(match_vid)
                     if err:
                         why = ("USB mass storage BLOCKED by host policy (device status "
                                "Error: {}) - USB device-control / DLP (e.g. SentinelOne, "

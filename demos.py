@@ -48,6 +48,20 @@ TRANSACTIONS = {
     "mass": "mass_file",
 }
 
+# Per-demo USB identity override for enumeration matching. Most demos enumerate
+# with VID_2FE3 (DEFAULT_VID). `mass` is built with Microchip's VID (0x04D8) so
+# corporate USB device-control (which allows Microchip VIDs) lets the disk mount;
+# match it precisely by VID+PID so it doesn't clash with the PKoB4 / YKUSH, which
+# are also VID_04D8. Format: a substring of the Windows PNPDeviceID.
+DEMO_USB_MATCH = {
+    "mass": "VID_04D8&PID_0008",
+}
+
+
+def usb_match_token(key, default_vid):
+    """The PNPDeviceID substring used to detect a demo's enumeration."""
+    return DEMO_USB_MATCH.get(key, "VID_" + default_vid.upper())
+
 
 # ---------------------------------------------------------------------------
 # auto-discovery
