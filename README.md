@@ -245,6 +245,12 @@ seconds per passing demo (it returns as soon as the device appears). Levers:
   a time to avoid that.
 - **Flashing** (~50 s/demo) is hardware-bound (erase+program+verify) and left
   as-is.
+- **`--pipeline` — overlap builds with flashing.** Normally each demo is
+  build → flash → enumerate in sequence, so the CPU idles during flash/enum and
+  the board idles during builds. With `--pipeline`, a background builder builds
+  demo *N+1* while demo *N* flashes/enumerates, hiding the flash+enum time under
+  the next build. Same results (the board stays serial — only builds run ahead,
+  into per-demo cache dirs). Biggest gain on a fresh sweep; stacks with ccache.
 
 ---
 
@@ -434,6 +440,9 @@ python run_usb_validation.py --ykush-port-hs 2 --ykush-port-fs 3
 :: Samples + 64 KiB transactions, both speeds, hands-free
 python run_usb_validation.py --transactions --ykush-port-hs 2 --ykush-port-fs 3
 
+:: Faster: overlap builds with flashing/enumeration (same results)
+python run_usb_validation.py --pipeline --ykush-port-hs 2 --ykush-port-fs 3
+
 :: Samples sweep AND udc driver tests in one go (ykush toggles the cable)
 python run_usb_validation.py --udc --ykush-port-hs 2 --ykush-port-fs 3
 ```
@@ -468,6 +477,7 @@ python run_usb_validation.py --udc-only --speeds hs --device-serial COM40
 | `--pristine {auto,always,never}` | `auto` | `west build` clean mode (`auto` = fast incremental) |
 | `--build-cache <dir>` | `<outdir>\.build_cache` | Location of cached build artifacts |
 | `--no-cache` | off | Build inside the timestamped run dir (no caching) |
+| `--pipeline` | off | Build the next demo while the current one flashes/enumerates (faster; same results) |
 | `--console <COMx>` | auto-detect | Serial console for demos that need shell init (e.g. `shell`) |
 | `--console-baud <n>` | `115200` | Baud rate for `--console` |
 | `--ykush-port-hs <n>` | `0` (off) | YKUSH port for the HS (USB-C) connector; enables ykush for HS runs |
