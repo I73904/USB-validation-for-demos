@@ -12,7 +12,8 @@ For each demo the tool:
    SG01 blinky bring-up).
 3. **Validates enumeration** — checks that the board re-appears in the Windows
    USB device list as a Zephyr device (`VID_2FE3`). If it enumerates, the demo
-   passes. (Data transactions may be added later.)
+   passes. (Optional data transactions verify real data transfer — opt in with
+   `--transactions`; see *Data transactions* below.)
 
 Results go to an HTML report, a JSON report, and per-run logs. Any demo that
 fails to build, flash, or enumerate is listed at the end.
@@ -46,8 +47,8 @@ hardcoded. USB *host* samples (`usbh.*`, `host_uvc`) and the legacy stack
 
 Each discovered demo is **built → flashed → enumeration-validated**, once for
 **HS** and once for **FS**. Run **`python run_usb_validation.py --list`** to see
-the exact set for the branch you're on. A typical set (14 on the
-`Z4M-5565` branch):
+the exact set for the branch you're on. The table below is an **example
+snapshot** (~14 demos from one branch); your branch's set may differ:
 
 | Demo (`--demo` key) | Sample path (`samples\…`) | USB device class | Enumerates on the PC as |
 |---------------------|---------------------------|------------------|--------------------------|
@@ -354,8 +355,8 @@ Select board [1-5] (Enter = pic32ck_sg01_cult):
 ```
 
 The full set is **auto-discovered** from the tree (any Microchip board whose
-`.dts` exposes `zephyr_udc0`), so it may vary by branch. On the
-`Z4M-5565` branch it is:
+`.dts` exposes `zephyr_udc0`), so it may vary by branch. As an **example
+snapshot** (your branch may differ):
 
 | # | Board (`--board`) | Speeds | Full name |
 |--:|-------------------|--------|-----------|
@@ -469,6 +470,8 @@ python run_usb_validation.py --udc-only --speeds hs --device-serial COM40
 | `--udc-only` | off | Run **only** the udc driver tests (skip the samples sweep) |
 | `--device-serial <COMx>` | auto | Serial console for `--udc` twister device-testing |
 | `--enum-timeout <s>` | `30` | How long to wait for the device to enumerate |
+| `--build-timeout <s>` | `1800` | Per-demo build time limit (seconds) |
+| `--flash-timeout <s>` | `600` | Per-demo flash time limit (seconds) |
 | `--vid <hex>` | `2FE3` | USB Vendor ID that counts as "enumerated" |
 | `--zephyr-base <path>` | auto-detect | Zephyr base or workspace root |
 | `--venv <dir>` / `--west <path>` | auto-detect | Locate `west` without activating the venv |
