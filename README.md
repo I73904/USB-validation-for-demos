@@ -648,17 +648,24 @@ Notes on the mass-storage test:
   a *"your organization blocks this device"* popup. The tool detects this and
   reports **"BLOCKED by host policy"** rather than blaming the firmware — CDC and
   enumeration still work because only *storage* is blocked.
-- **Workaround used here (Microchip VID):** the block is per-Vendor-ID, and this
-  machine's policy allows **Microchip's VID `0x04D8`**. So the `mass` sample is
-  built with `CONFIG_SAMPLE_USBD_VID=0x04D8` (in `…/samples/subsys/usb/mass/prj.conf`)
-  and it then mounts. Because of this, the tool identifies the mass device by
-  **`VID_04D8&PID_0008`** (see `DEMO_USB_MATCH` in `demos.py`) — the precise
-  VID+PID avoids clashing with the PKoB4 / YKUSH, which are also VID `04D8`.
-  > This couples the tool to that sample edit: if the Zephyr tree is reset
-  > (e.g. `west update`) the mass VID reverts to `2FE3`; re-apply the prj.conf
-  > line, or update `DEMO_USB_MATCH["mass"]` to `VID_2FE3&PID_0008`.
-  Alternatively, have your team allow-list VID `2FE3` in the console and drop the
-  workaround.
+- **Workaround for managed PCs (Microchip VID):** the block is per-Vendor-ID, and
+  a typical corporate policy allows **Microchip's VID `0x04D8`**. So on a machine
+  that blocks storage, build the `mass` sample with
+  `CONFIG_SAMPLE_USBD_VID=0x04D8` (in `…/samples/subsys/usb/mass/prj.conf`) and the
+  disk then mounts. This edit only changes whether the disk **mounts** — it has no
+  effect on whether the device is *detected*.
+- **Enumeration matching is VID-agnostic** (so this no longer bites a fresh tree).
+  The tool identifies the mass device by **either `VID_2FE3&PID_0008` (default
+  build) or `VID_04D8&PID_0008` (workaround build)** — it accepts whichever the
+  firmware was actually built with (`DEMO_USB_MATCH["mass"]` in `demos.py` is a
+  **list** of accepted tokens; ANY match = enumerated). So `mass` enumeration
+  passes on a clean tree **without** the prj.conf edit (VID `2FE3`) *and* on a
+  managed PC **with** the `0x04D8` workaround — no per-machine config. Matching the
+  precise VID+PID (not just the VID) avoids clashing with the PKoB4 / YKUSH, which
+  are also VID `04D8`, and the DLP error-code check then uses the VID that actually
+  enumerated.
+  > If you *don't* want the `04D8` build at all, ask IT to allow-list VID `2FE3`
+  > and just leave the sample stock — the tool matches `2FE3` out of the box.
 
 ---
 

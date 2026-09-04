@@ -146,16 +146,20 @@ def query_usb_devices():
     return result
 
 
-def find_usb_match(devices, token):
-    """Return list of (id, name) whose PNPDeviceID contains `token` (e.g. 'VID_2FE3'
-    or the more precise 'VID_04D8&PID_0008'), case-insensitive."""
-    t = token.upper()
-    return [(i, n) for i, n in devices.items() if t in i.upper()]
+def find_usb_match(devices, tokens):
+    """Return list of (id, name) whose PNPDeviceID contains ANY of `tokens`,
+    case-insensitive. `tokens` may be a single string (e.g. 'VID_2FE3') or a list
+    of them (e.g. ['VID_2FE3&PID_0008', 'VID_04D8&PID_0008'])."""
+    if isinstance(tokens, str):
+        tokens = [tokens]
+    toks = [t.upper() for t in tokens]
+    return [(i, n) for i, n in devices.items()
+            if any(t in i.upper() for t in toks)]
 
 
-def wait_for_enumeration(baseline, token, timeout, settle=1.0, interval=1.0):
+def wait_for_enumeration(baseline, tokens, timeout, settle=1.0, interval=1.0):
     """
-    Poll the USB device list until a device matching `token` shows up.
+    Poll the USB device list until a device matching any of `tokens` shows up.
     Returns (status, matched_list, new_devices) and returns as soon as the
     device appears (so a passing enumeration is fast).
     """
@@ -164,7 +168,7 @@ def wait_for_enumeration(baseline, token, timeout, settle=1.0, interval=1.0):
     last = {}
     while True:
         last = query_usb_devices()
-        matched = find_usb_match(last, token)
+        matched = find_usb_match(last, tokens)
         if matched:
             new = {i: n for i, n in last.items() if i not in baseline}
             return PASS, matched, new
@@ -1550,10 +1554,14 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
     rec = dict(demo=key, speed=speed, note=demo["note"],
                build=NA, flash=NA, enum=NA, txn=NA, reason="", device="")
 
-    # how this demo is identified on the host USB list (mass uses VID_04D8&PID_0008)
-    match_token = demos.usb_match_token(key, args.vid)
-    match_vid = (match_token.split("&")[0][4:]
-                 if match_token.upper().startswith("VID_") else args.vid)
+    # how this demo is identified on the host USB list. `mass` accepts EITHER the
+    # default Zephyr VID (2FE3) or the Microchip-VID (04D8) DLP-workaround build.
+    match_tokens = demos.usb_match_tokens(key, args.vid)
+    match_desc = " or ".join(match_tokens)
+    # VID for the CDC-port lookup / DLP error-code query; refined below to the VID
+    # that actually enumerated (matters for multi-VID demos like mass).
+    match_vid = (match_tokens[0].split("&")[0][4:]
+                 if match_tokens[0].upper().startswith("VID_") else args.vid)
 
     # the mass_file transaction needs the FAT build variant (RAM disk + fatfs)
     txn_kind = demos.TRANSACTIONS.get(key)
@@ -1635,10 +1643,14 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
 
         # ---- enumerate ----
         log_line("ENUM   {} (waiting up to {}s, match {}) ...".format(
-            label, args.enum_timeout, match_token))
-        estatus, matched, new = wait_for_enumeration(baseline, match_token, args.enum_timeout)
+            label, args.enum_timeout, match_desc))
+        estatus, matched, new = wait_for_enumeration(baseline, match_tokens, args.enum_timeout)
         rec["enum"] = estatus
         if matched:
+            # refine the VID to whatever actually enumerated (2FE3 vs 04D8 for mass)
+            mid = matched[0][0].upper()
+            if "VID_" in mid:
+                match_vid = mid.split("VID_", 1)[1][:4]
             rec["device"] = "; ".join(
                 "{} ({})".format(n or "?", i.split("\\")[1] if "\\" in i else i)
                 for i, n in matched[:3])
@@ -1652,9 +1664,9 @@ def run_one_demo(demo, speed, board, args, env, results, snippet=None):
                 rec["reason"] = ("device attached but Windows could not read its "
                                  "descriptors (likely USB driver/enumeration bug)")
             else:
-                rec["device"] = "new (no {}): ".format(match_token) + "; ".join(
+                rec["device"] = "new (no {}): ".format(match_desc) + "; ".join(
                     list(new.values())[:3])
-                rec["reason"] = "new USB device(s) appeared but none matching {}".format(match_token)
+                rec["reason"] = "new USB device(s) appeared but none matching {}".format(match_desc)
         else:
             rec["reason"] = ("no USB device appeared within {}s - is the board's USB "
                              "*device* port (not the debugger) connected?".format(args.enum_timeout))

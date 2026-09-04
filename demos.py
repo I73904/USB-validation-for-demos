@@ -49,18 +49,31 @@ TRANSACTIONS = {
 }
 
 # Per-demo USB identity override for enumeration matching. Most demos enumerate
-# with VID_2FE3 (DEFAULT_VID). `mass` is built with Microchip's VID (0x04D8) so
-# corporate USB device-control (which allows Microchip VIDs) lets the disk mount;
-# match it precisely by VID+PID so it doesn't clash with the PKoB4 / YKUSH, which
-# are also VID_04D8. Format: a substring of the Windows PNPDeviceID.
+# with VID_2FE3 (DEFAULT_VID). `mass` may enumerate under EITHER the default
+# Zephyr VID (2FE3) OR Microchip's VID (0x04D8): the 0x04D8 build is the
+# corporate-DLP workaround (CONFIG_SAMPLE_USBD_VID=0x04D8 in the sample's
+# prj.conf) that lets managed PCs mount the disk, while a fresh tree without that
+# edit builds as 2FE3. We accept BOTH (matched by the mass-storage PID), so the
+# check passes whether or not the workaround is applied. Each value is a single
+# PNPDeviceID substring or a list of them (ANY match = enumerated); matching the
+# precise VID+PID avoids clashing with the PKoB4 / YKUSH, which are also VID_04D8.
 DEMO_USB_MATCH = {
-    "mass": "VID_04D8&PID_0008",
+    "mass": ["VID_2FE3&PID_0008", "VID_04D8&PID_0008"],
 }
 
 
+def usb_match_tokens(key, default_vid):
+    """Candidate PNPDeviceID substrings that mark a demo as enumerated.
+    Returns a list; a device matching ANY of them counts as enumerated."""
+    val = DEMO_USB_MATCH.get(key)
+    if val is None:
+        return ["VID_" + default_vid.upper()]
+    return list(val) if isinstance(val, (list, tuple)) else [val]
+
+
 def usb_match_token(key, default_vid):
-    """The PNPDeviceID substring used to detect a demo's enumeration."""
-    return DEMO_USB_MATCH.get(key, "VID_" + default_vid.upper())
+    """Back-compat: the primary (first) candidate token, for display/logging."""
+    return usb_match_tokens(key, default_vid)[0]
 
 
 # ---------------------------------------------------------------------------
