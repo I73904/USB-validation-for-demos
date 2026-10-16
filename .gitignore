@@ -1,0 +1,11 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Generated validation output (reports, logs) and incremental build cache
+results/
+results_blinky/
+.build_cache/
+
+# Temporary board devicetree backup created by the FS-patch fallback
+*.usbval.bak
